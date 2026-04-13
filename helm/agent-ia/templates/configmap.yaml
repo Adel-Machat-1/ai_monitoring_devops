@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  namespace: monitoring
+data:
+  PROMETHEUS_URL: {{ .Values.config.prometheusUrl | quote }}
+  LOKI_URL: {{ .Values.config.lokiUrl | quote }}
+  MINIO_ENDPOINT: {{ .Values.config.minioEndpoint | quote }}
+  MINIO_BUCKET: {{ .Values.config.minioBucket | quote }}
+  EMAIL_TO: {{ .Values.config.emailTo | quote }}
+  EMAIL_FROM: {{ .Values.config.emailFrom | quote }}

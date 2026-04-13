@@ -1,0 +1,29 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environnement virtuel
+venv/
+env/
+
+# Modèles ML
+models/
+*.pkl
+
+# PDF générés
+*.pdf
+
+# ── SECRETS — ne jamais pusher ────────────────────────────────
+.env
+config.py       
+
+# IDE
+.vscode/
+.idea/
+
+# Windows
+Thumbs.db
+desktop.ini
+
+helm/agent-ia/values.yaml

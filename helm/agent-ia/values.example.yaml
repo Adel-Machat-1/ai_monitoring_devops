@@ -1,0 +1,39 @@
+
+
+# ── Image Docker ──────────────────────────────────────────────
+image:
+  repository: ghcr.io/VOTRE_USERNAME/agent-ia
+  tag: latest
+  pullPolicy: Always
+
+# ── Service ───────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 5000
+
+replicaCount: 1
+
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+
+# ── Configuration (pas de secrets) ───────────────────────────
+config:
+  prometheusUrl: "http://prometheus-kube-prometheus-prometheus.monitoring:9090"
+  lokiUrl: "http://loki-gateway.monitoring:80"
+  minioEndpoint: "minio.apps:9000"
+  minioBucket: "incident-reports"
+  emailTo: "votre.email@gmail.com"
+  emailFrom: "agent-ia@kubernetes-monitoring.com"
+
+# ── Secrets — NE PAS commiter values.yaml avec vraies valeurs !
+secrets:
+  githubToken: "VOTRE_GITHUB_TOKEN"
+  mailtrapUsername: "VOTRE_MAILTRAP_USERNAME"
+  mailtrapPassword: "VOTRE_MAILTRAP_PASSWORD"
+  minioAccessKey: "VOTRE_MINIO_ACCESS_KEY"
+  minioSecretKey: "VOTRE_MINIO_SECRET_KEY"

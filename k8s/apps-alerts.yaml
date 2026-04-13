@@ -1,0 +1,157 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: monitoring-apps-alerts
+  namespace: monitoring
+  labels:
+    app: kube-prometheus-stack
+    release: monitoring   #must match Prometheus selector
+spec:
+  groups:
+    - name: apps-basic-alerts
+      interval: 30s
+      rules:
+
+        # ============================================
+        # RULE 1: exporter unreachable
+        # ============================================
+        - alert: PostgresDown
+          expr: absent(up{job="postgresql-primary-metrics"}) or up{job="postgresql-primary-metrics"} == 0
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "PostgreSQL is DOWN"
+            description: "The PostgreSQL exporter has not responded for 1 minute"
+
+        - alert: MongoDBDown
+          expr: absent(up{job="mongodb-metrics"}) or up{job="mongodb-metrics"} == 0
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "MongoDB is DOWN"
+            description: "The MongoDB exporter has not responded for 1 minute"
+
+        - alert: RedisDown
+          expr: absent(up{job="redis-metrics"}) or up{job="redis-metrics"} == 0
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Redis is DOWN"
+            description: "The Redis exporter has not responded for 1 minute"
+
+        - alert: RedpandaDown
+          expr: absent(up{job="redpanda"}) or up{job="redpanda"} == 0
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Redpanda is DOWN"
+            description: "The Redpanda exporter has not responded for 1 minute"
+
+        - alert: KeycloakDown
+          expr: absent(up{job="keycloak-metrics"}) or up{job="keycloak-metrics"} == 0
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Keycloak is DOWN"
+            description: "The Keycloak exporter has not responded for 1 minute" 
+
+        # ============================================
+        # RULE 2: pod not healthy
+        # ============================================
+        - alert: PostgresPodNotRunning
+          expr: kube_pod_status_phase{namespace="apps", pod=~".*postgres.*", phase=~"Pending|Failed|Unknown"} == 1
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "PostgreSQL pod not healthy"
+            description: "Pod {{ $labels.pod }} is in phase {{ $labels.phase }}"
+
+        - alert: MongoPodNotRunning
+          expr: kube_pod_status_phase{namespace="apps", pod=~".*mongo.*", phase=~"Pending|Failed|Unknown"} == 1
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "MongoDB pod not healthy"
+            description: "Pod {{ $labels.pod }} is in phase {{ $labels.phase }}"
+
+        - alert: RedisPodNotRunning
+          expr: kube_pod_status_phase{namespace="apps", pod=~".*redis.*", phase=~"Pending|Failed|Unknown"} == 1
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Redis pod not healthy"
+            description: "Pod {{ $labels.pod }} is in phase {{ $labels.phase }}"
+
+        - alert: RedpandaPodNotRunning
+          expr: kube_pod_status_phase{namespace="apps", pod=~".*redpanda.*", phase=~"Pending|Failed|Unknown"} == 1
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Redpanda pod not healthy"
+            description: "Pod {{ $labels.pod }} is in phase {{ $labels.phase }}"
+
+        - alert: KeycloakPodNotRunning
+          expr: kube_pod_status_phase{namespace="apps", pod=~".*keycloak.*", phase=~"Pending|Failed|Unknown"} == 1
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Keycloak pod not healthy"
+            description: "Pod {{ $labels.pod }} is in phase {{ $labels.phase }}"
+
+        # ============================================
+        # RULE 3: crash looping
+        # ============================================
+        - alert: AppCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total{
+              namespace="apps",
+              pod=~".*(postgres|mongo|redis|redpanda|keycloak).*"
+            }[15m]) > 3
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "App crash looping: {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} restarted more than 3 times in 15 minutes"
+
+        # ============================================
+        # RULE 4: deployment unavailable
+        # ============================================
+        - alert: AppDeploymentUnavailable
+          expr: |
+            kube_deployment_status_replicas_unavailable{
+              namespace="apps"
+            } > 0
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Deployment unavailable: {{ $labels.deployment }}"
+            description: "{{ $value }} unavailable replica(s) in deployment {{ $labels.deployment }}"
+
+        # ============================================
+        # RULE 5: pod not ready
+        # ============================================
+        - alert: AppPodNotReady
+          expr: |
+            kube_pod_status_ready{
+              namespace="apps",
+              condition="true",
+              pod=~".*(postgres|mongo|redis|redpanda|keycloak).*"
+            } == 0
+          for: 30s
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod not ready: {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} has been failing readiness for 2 minutes"

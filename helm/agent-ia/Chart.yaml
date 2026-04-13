@@ -1,0 +1,15 @@
+apiVersion: v2
+name: agent-ia
+description: Agent IA Monitoring Kubernetes avec RCA Automatisé
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - kubernetes
+  - monitoring
+  - ai
+  - anomaly-detection
+  - rca
+maintainers:
+  - name: Adel-Machat-1
+    email: Adel.Machat@keyrus.com

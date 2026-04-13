@@ -1,0 +1,14 @@
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.pkl
+models/
+*.pdf
+.env
+.git/
+.github/
+docs/
+k8s/
+helm/
+*.md
