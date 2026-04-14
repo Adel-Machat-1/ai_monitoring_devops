@@ -1,22 +1,20 @@
-
+global:
+  resolve_timeout: 5m
 route:
   group_by: ['alertname', 'namespace']
   group_wait: 30s
   group_interval: 1m
   repeat_interval: 5m
   receiver: 'webhook-alert'
-
   routes:
-    - match:
-        severity: critical
-      receiver: 'webhook-alert'
-    - match:
-        severity: warning
-      receiver: 'webhook-alert'
-
+  - match:
+      severity: critical
+    receiver: 'webhook-alert'
+  - match:
+      severity: warning
+    receiver: 'webhook-alert'
 receivers:
-  - name: 'webhook-alert'
-    webhook_configs:
-      - url: 'http://host.docker.internal:5000/webhook/alert'
-        send_resolved: true
-
+- name: 'webhook-alert'
+  webhook_configs:
+  - url: 'http://agent-ia-service.monitoring:5000/webhook/alert'
+    send_resolved: true

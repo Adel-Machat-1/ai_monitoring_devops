@@ -27,3 +27,5 @@ RUN mkdir -p models
 EXPOSE 5000
 
 CMD ["python", "main.py"]
+
+ENV PYTHONUNBUFFERED=1

@@ -14,7 +14,7 @@ os.makedirs(MODELS_DIR, exist_ok=True)
 metrics_history = {app: [] for app in ["keycloak", "postgresql", "mongodb", "redis", "redpanda"]}
 
 # Nombre minimum de points pour entraîner le modèle
-MIN_TRAINING_POINTS = 10  # ~50 minutes de données (10 x 5min)
+MIN_TRAINING_POINTS = 5  # ~50 minutes de données (10 x 5min)
 
 # Seuil de contamination (% attendu d'anomalies)
 CONTAMINATION = 0.03  # 3%

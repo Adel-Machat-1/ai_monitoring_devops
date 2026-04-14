@@ -23,7 +23,6 @@ spec:
           ports:
             - containerPort: 5000
           env:
-            # Config URLs
             - name: PROMETHEUS_URL
               valueFrom:
                 configMapKeyRef:
@@ -54,7 +53,6 @@ spec:
                 configMapKeyRef:
                   name: {{ .Release.Name }}-config
                   key: EMAIL_FROM
-            # Secrets
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -80,10 +78,12 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: MINIO_SECRET_KEY
-          
           volumeMounts:
             - name: models
               mountPath: /app/models
+            - name: config-py
+              mountPath: /app/config.py
+              subPath: config.py
           resources:
             requests:
               memory: {{ .Values.resources.requests.memory }}
@@ -105,4 +105,9 @@ spec:
             periodSeconds: 10
       volumes:
         - name: models
-          emptyDir: {}
+          hostPath:
+            path: /app/models        # ← persistant sur le node
+            type: DirectoryOrCreate  # ← crée si absent
+        - name: config-py
+          configMap:
+            name: agent-ia-config-py
