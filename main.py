@@ -94,4 +94,9 @@ def health():
 if __name__ == "__main__":
     print("[DÉMARRAGE] http://localhost:5000")
     start_anomaly_scheduler(alert_queue)
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=True,
+        use_reloader=False  
+    )
