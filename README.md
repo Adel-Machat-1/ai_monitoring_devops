@@ -95,3 +95,5 @@ MinIO (install via helm)
 ### 6. Lancer l'agent
 
 python main.py
+
+echo "# test" >> README.md
