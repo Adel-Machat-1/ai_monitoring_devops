@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copier le code source
 COPY main.py .
-COPY config.py .
 COPY core/ ./core/
 COPY reports/ ./reports/
 COPY utils/ ./utils/
