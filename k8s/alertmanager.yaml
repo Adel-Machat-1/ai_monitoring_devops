@@ -1,20 +1,26 @@
-global:
-  resolve_timeout: 5m
-route:
-  group_by: ['alertname', 'namespace']
-  group_wait: 30s
-  group_interval: 1m
-  repeat_interval: 5m
-  receiver: 'webhook-alert'
-  routes:
-  - match:
-      severity: critical
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+spec:
+  route:
+    groupBy: ['alertname', 'namespace']
+    groupWait: 30s
+    groupInterval: 1m
+    repeatInterval: 5m
     receiver: 'webhook-alert'
-  - match:
-      severity: warning
-    receiver: 'webhook-alert'
-receivers:
-- name: 'webhook-alert'
-  webhook_configs:
-  - url: 'http://agent-ia-service.monitoring:5000/webhook/alert'
-    send_resolved: true
+    routes:
+      - matchers:
+          - name: severity
+            value: critical
+        receiver: 'webhook-alert'
+      - matchers:
+          - name: severity
+            value: warning
+        receiver: 'webhook-alert'
+  receivers:
+    - name: 'webhook-alert'
+      webhookConfigs:
+        - url: 'http://host.docker.internal:5000/webhook/alert'
+          sendResolved: true

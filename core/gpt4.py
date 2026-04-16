@@ -16,7 +16,7 @@ def call_gpt4_with_retry(parsed, metrics, logs, events=[], max_retries=3):
 
     metrics_summary = extract_metrics_summary(metrics)
     logs_text       = extract_logs_text(logs, max_lines=20)
-    events_text     = format_events_text(events)          # ← events maintenant disponible
+    events_text     = format_events_text(events)         
 
     prompt = f"""
 Tu es un expert SRE spécialisé en Kubernetes.
