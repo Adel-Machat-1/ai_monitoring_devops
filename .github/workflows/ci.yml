@@ -34,12 +34,16 @@ jobs:
           PROMETHEUS_URL = "http://localhost:9090"
           LOKI_URL       = "http://localhost:3100"
           GITHUB_TOKEN   = "test_token"
-          MAILTRAP_HOST     = "sandbox.smtp.mailtrap.io"
-          MAILTRAP_PORT     = 2525
-          MAILTRAP_USERNAME = "test_username"
-          MAILTRAP_PASSWORD = "test_password"
-          EMAIL_FROM        = "agent-ia@test.com"
-          EMAIL_TO          = "devops@test.com"
+          cat > config.py << 'EOF'
+          GMAIL_HOST     = "smtp.gmail.com"
+          GMAIL_PORT     = 587
+          GMAIL_USERNAME = "test@gmail.com"
+          GMAIL_PASSWORD = "test_password"
+          EMAIL_FROM     = "test@gmail.com"
+          EMAIL_TO       = "test@gmail.com"
+          # ... reste de la config
+          EOF
+         
           MINIO_ENDPOINT   = "localhost:9000"
           MINIO_ACCESS_KEY = "minioadmin"
           MINIO_SECRET_KEY = "minioadmin123"

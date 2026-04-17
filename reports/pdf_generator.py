@@ -420,6 +420,54 @@ def generate_pdf_report(parsed, metrics, logs, analysis, events=[]):
         content.append(t_err)
         content.append(Spacer(1, 0.3*cm))
 
+
+# ── SECTION : COMMANDES DIAGNOSTIC ───────────────────────────
+    if analysis.get('commandes_diagnostic'):
+        content.append(Spacer(1, 0.3*cm))
+
+    sec_cmd = Table(
+        [[Paragraph("🖥️ Commandes de diagnostic", section_style)]],
+        colWidths=[17*cm]
+    )
+    sec_cmd.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), LIGHT_BLUE),
+        ("TOPPADDING",    (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+        ("LEFTPADDING",   (0,0), (-1,-1), 10),
+    ]))
+    content.append(sec_cmd)
+    content.append(Spacer(1, 0.2*cm))
+
+    cmd_style = ParagraphStyle(
+        "CMD", parent=styles["Normal"],
+        fontSize=9,
+        fontName="Courier",
+        textColor=HexColor("#1A3A5C"),
+        leading=14,
+        leftIndent=8,
+        wordWrap='CJK',
+        splitLongWords=True,
+    )
+
+    for i, cmd in enumerate(analysis.get('commandes_diagnostic', [])):
+        safe_cmd = cmd.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        bg = HexColor("#EBF5FB") if i % 2 == 0 else HexColor("#FFFFFF")
+
+        t_cmd = Table(
+            [[Paragraph(f"$ {safe_cmd}", cmd_style)]],
+            colWidths=[17*cm]
+        )
+        t_cmd.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,-1), bg),
+            ("TOPPADDING",    (0,0), (-1,-1), 8),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+            ("LEFTPADDING",   (0,0), (-1,-1), 12),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 12),
+            ("LINEBELOW",     (0,0), (-1,-1), 0.5, HexColor("#AED6F1")),
+        ]))
+        content.append(t_cmd)
+
+
     # ── FOOTER ────────────────────────────────────────────────
     content.append(Spacer(1, 0.5*cm))
     footer = Table([[Paragraph(
