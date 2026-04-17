@@ -9,15 +9,17 @@ LOKI_URL       = "http://localhost:3100"
 # Obtenir sur : https://github.com/settings/tokens
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "ghp_VOTRE_TOKEN_ICI")
 
-# ── Mailtrap SMTP ─────────────────────────────
-# Obtenir sur : https://mailtrap.io
 
-MAILTRAP_HOST     = "sandbox.smtp.mailtrap.io"
-MAILTRAP_PORT     = 2525
-MAILTRAP_USERNAME = os.getenv("MAILTRAP_USERNAME", "VOTRE_USERNAME")
-MAILTRAP_PASSWORD = os.getenv("MAILTRAP_PASSWORD", "VOTRE_PASSWORD")
-EMAIL_FROM        = "agent-ia@kubernetes-monitoring.com"
-EMAIL_TO          = "devops@monitoring.com"
+
+# ── fix your email  ─────────────────────
+HOST     = "smtp.gmail.com"
+PORT     = 587
+USERNAME = "exemple@gmail.com"
+PASSWORD = "******************"  #active double véréfication et creer une application with passord 
+TO       = "exepmle2@gmail.com" 
+
+
+
 
 # ── MinIO ─────────────────────────────────────
 MINIO_ENDPOINT   = "localhost:9000"
