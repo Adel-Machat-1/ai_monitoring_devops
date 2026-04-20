@@ -262,7 +262,7 @@ def generate_pdf_report(parsed, metrics, logs, analysis, events=[]):
     
 
     # ── SECTION 4 : EVENTS KUBERNETES ─────────────────────────
-    sec4 = Table([[Paragraph("5. Events Kubernetes", section_style)]], colWidths=[17*cm])
+    sec4 = Table([[Paragraph("4. Events Kubernetes", section_style)]], colWidths=[17*cm])
     sec4.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), LIGHT_BLUE),
         ("TOPPADDING", (0,0), (-1,-1), 6),
@@ -299,7 +299,7 @@ def generate_pdf_report(parsed, metrics, logs, analysis, events=[]):
 
     # ── SECTION 5 : ANALYSE RCA ───────────────────────────────
     sec5 = Table(
-        [[Paragraph("5. Analyse Root Cause Analysis (GPT-4)", section_style)]],
+        [[Paragraph("5. Analyse Root Cause Analysis ", section_style)]],
         colWidths=[17*cm]
     )
     sec5.setStyle(TableStyle([
@@ -426,7 +426,7 @@ def generate_pdf_report(parsed, metrics, logs, analysis, events=[]):
         content.append(Spacer(1, 0.3*cm))
 
     sec_cmd = Table(
-        [[Paragraph("🖥️ Commandes de diagnostic", section_style)]],
+        [[Paragraph("6- Commandes de diagnostic", section_style)]],
         colWidths=[17*cm]
     )
     sec_cmd.setStyle(TableStyle([
