@@ -27,23 +27,19 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # ── Créer config.py de test ────────────────────────────
       - name: Create test config
         run: |
           cat > config.py << 'EOF'
-          PROMETHEUS_URL = "http://localhost:9090"
-          LOKI_URL       = "http://localhost:3100"
-          GITHUB_TOKEN   = "test_token"
-          cat > config.py << 'EOF'
-          GMAIL_HOST     = "smtp.gmail.com"
-          GMAIL_PORT     = 587
-          GMAIL_USERNAME = "test@gmail.com"
-          GMAIL_PASSWORD = "test_password"
-          EMAIL_FROM     = "test@gmail.com"
-          EMAIL_TO       = "test@gmail.com"
-          # ... reste de la config
-          EOF
-         
+          PROMETHEUS_URL   = "http://localhost:9090"
+          LOKI_URL         = "http://localhost:3100"
+          GITHUB_TOKEN     = "test_token"
+          GMAIL_HOST       = "smtp.gmail.com"
+          GMAIL_PORT       = 587
+          GMAIL_USERNAME   = "test@gmail.com"
+          GMAIL_PASSWORD   = "test_password"
+          EMAIL_FROM       = "test@gmail.com"
+          EMAIL_TO         = "test@gmail.com"
+      
           MINIO_ENDPOINT   = "localhost:9000"
           MINIO_ACCESS_KEY = "minioadmin"
           MINIO_SECRET_KEY = "minioadmin123"
@@ -52,50 +48,26 @@ jobs:
           MODELS           = ["gpt-4o-mini", "gpt-4o"]
           DEDUP_WINDOW     = 300
           SKIP_SEVERITIES  = ["info", "none"]
-          IGNORED_ALERTS = [
-              "Watchdog", "InfoInhibitor",
-              "KubeProxyDown", "KubeSchedulerDown",
-              "KubeControllerManagerDown",
-              "KubeStatefulSetReplicasMismatch",
-              "KubePdbNotEnoughHealthyPods",
-              "AlertmanagerFailedToSendAlerts",
-              "AlertmanagerClusterFailedToSendAlerts",
-              "NodeClockNotSynchronising",
-              "CPUThrottlingHigh", "TargetDown",
-          ]
-          ALLOWED_ALERTS = [
-              "PostgresDown", "MongoDBDown", "RedisDown",
-              "RedpandaDown", "KeycloakDown",
-              "PostgresPodNotRunning", "MongoPodNotRunning",
-              "RedisPodNotRunning", "RedpandaPodNotRunning",
-              "KeycloakPodNotRunning",
-              "AppCrashLooping", "AppDeploymentUnavailable",
-              "AppPodNotReady",
-              "AnomalyDetected_Postgresql",
-              "AnomalyDetected_Mongodb",
-              "AnomalyDetected_Redis",
-              "AnomalyDetected_Keycloak",
-              "AnomalyDetected_Redpanda",
-          ]
-          APP_NAMESPACES = {
-              "postgresql-primary-metrics": "apps",
-              "mongodb-metrics":            "apps",
-              "keycloak-metrics":           "apps",
-              "redis-metrics":              "apps",
-              "redpanda":                   "apps",
-              "kube-state-metrics":         "apps",
-          }
-          APP_POD_PREFIX = {
-              "postgresql-primary-metrics": "postgresql",
-              "mongodb-metrics":            "mongodb",
-              "keycloak-metrics":           "keycloak",
-              "redis-metrics":              "redis-master",
-              "redpanda":                   "redpanda",
-          }
+          IGNORED_ALERTS   = ["Watchdog","InfoInhibitor","KubeProxyDown","KubeSchedulerDown","KubeControllerManagerDown","KubeStatefulSetReplicasMismatch","KubePdbNotEnoughHealthyPods","AlertmanagerFailedToSendAlerts","AlertmanagerClusterFailedToSendAlerts","NodeClockNotSynchronising","CPUThrottlingHigh","TargetDown"]
+          ALLOWED_ALERTS   = ["PostgresDown","MongoDBDown","RedisDown","RedpandaDown","KeycloakDown","PostgresPodNotRunning","MongoPodNotRunning","RedisPodNotRunning","RedpandaPodNotRunning","KeycloakPodNotRunning","AppCrashLooping","AppDeploymentUnavailable","AppPodNotReady","AnomalyDetected_Postgresql","AnomalyDetected_Mongodb","AnomalyDetected_Redis","AnomalyDetected_Keycloak","AnomalyDetected_Redpanda"]
+          APP_NAMESPACES   = {"postgresql-primary-metrics":"apps","mongodb-metrics":"apps","keycloak-metrics":"apps","redis-metrics":"apps","redpanda":"apps","kube-state-metrics":"apps"}
+          APP_POD_PREFIX   = {"postgresql-primary-metrics":"postgresql-primary","mongodb-metrics":"mongodb","keycloak-metrics":"keycloak","redis-metrics":"redis-master","redpanda":"redpanda"}
           EOF
 
-      - name: Run tests
-        run: pytest tests/ -v
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ -v \
+            --cov=core \
+            --cov=reports \
+            --cov=utils \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
 
   build:
     name: Build Docker Image
@@ -129,3 +101,45 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  security:
+    name: Security Scan Trivy
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: table
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+      - name: Save Trivy report
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: json
+          output: trivy-results.json
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-security-report
+          path: trivy-results.json
