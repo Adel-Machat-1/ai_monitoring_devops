@@ -1,42 +1,108 @@
 import queue
 import threading
 import time
+import uuid
 from core.gpt4 import call_gpt4_with_retry, print_analysis
 from reports.pdf_generator import generate_pdf_report
 from reports.minio_uploader import upload_to_minio
 from reports.email_sender import send_email_report
+from core.state import pending_remediations
 
 alert_queue = queue.Queue()
+_processing = set()  # ← tracker pour éviter doublons
+
+def process_alert(parsed, metrics, logs, events):
+    """Pipeline complet de traitement d'une alerte"""
+
+    # ── Anti-doublon processing ───────────────────────────────
+    alert_key = f"{parsed['name']}_{parsed['service']}"
+    if alert_key in _processing:
+        print(f"[QUEUE] ⚠️ Déjà en cours : {alert_key} — ignoré")
+        return None
+    _processing.add(alert_key)
+
+    try:
+        # ── GPT-4 RCA ─────────────────────────────────────────
+        analysis = call_gpt4_with_retry(parsed, metrics, logs, events)
+        print_analysis(analysis, parsed)
+
+        # ── Limiter les logs pour le PDF ──────────────────────
+        try:
+            if logs is None:
+                logs_limited = []
+            elif isinstance(logs, list):
+                logs_limited = logs[:3]
+            elif isinstance(logs, dict):
+                logs_limited = [logs]
+            elif isinstance(logs, str):
+                logs_limited = [{"values": [[0, logs[:500]]]}]
+            else:
+                logs_limited = []
+        except:
+            logs_limited = []
+
+        # ── PDF ───────────────────────────────────────────────
+        print("\n[PDF] Génération du rapport PDF...")
+        pdf_bytes, filename = generate_pdf_report(
+            parsed, metrics, logs_limited, analysis, events
+        )
+
+        if pdf_bytes:
+            print(f"[PDF] ✅ PDF généré : {filename} ({len(pdf_bytes)} bytes)")
+        else:
+            filename  = f"incident_{parsed['name']}.pdf"
+            pdf_bytes = b""
+
+        # ── MinIO ─────────────────────────────────────────────
+        minio_url = upload_to_minio(pdf_bytes, filename)
+
+        # ── Incident ID pour remédiation ──────────────────────
+        incident_id = str(uuid.uuid4())[:8]
+
+        # ── Stocker dans pending_remediations ─────────────────
+        pending_remediations[incident_id] = {
+            "parsed"  : parsed,
+            "analysis": analysis,
+        }
+        print(f"[REMEDIATION] 🔔 Incident {incident_id} en attente d'approbation")
+
+        # ── Email avec boutons approbation ────────────────────
+        send_email_report(parsed, analysis, pdf_bytes, filename, minio_url, incident_id)
+
+        return analysis
+
+    finally:
+        # ── Libérer le tracker ────────────────────────────────
+        _processing.discard(alert_key)
+
 
 def queue_worker():
+    """Worker qui traite les alertes dans la queue"""
     print("[QUEUE] Worker démarré")
+
     while True:
         try:
             job = alert_queue.get(timeout=1)
             if job is None:
                 break
 
-            # ── Unpack avec events ────────────────────────────
             parsed, metrics, logs, events = job
-
             print(f"\n[QUEUE] Traitement : {parsed['name']} ({parsed['severity']})")
 
-            analysis         = call_gpt4_with_retry(parsed, metrics, logs, events)
-            print_analysis(analysis, parsed)
-            pdf_bytes, fname = generate_pdf_report(parsed, metrics, logs, analysis, events)
-            minio_url        = upload_to_minio(pdf_bytes, fname)
-            send_email_report(parsed, analysis, pdf_bytes, fname, minio_url)
+            process_alert(parsed, metrics, logs, events)
 
-            alert_queue.task_done()
             print(f"[QUEUE] ✅ Pipeline complet : {parsed['name']}")
             print(f"[QUEUE] Attente 30s...")
             time.sleep(30)
+
+            alert_queue.task_done()
 
         except queue.Empty:
             continue
         except Exception as e:
             print(f"[QUEUE] Erreur: {str(e)}")
             alert_queue.task_done()
+
 
 worker_thread = threading.Thread(target=queue_worker, daemon=True)
 worker_thread.start()

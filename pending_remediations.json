@@ -1,0 +1,150 @@
+{
+  "0ae1fc97": {
+    "parsed": {
+      "name": "AnomalyDetected_Postgresql",
+      "service": "postgresql-primary-0",
+      "job": "postgresql-metrics",
+      "namespace": "apps",
+      "severity": "warning",
+      "status": "firing",
+      "description": "Anomalie ML d\u00e9tect\u00e9e sur postgresql \u2014 Score d'anomalie : 0.72 \u2014 comportement inhabituel d\u00e9tect\u00e9",
+      "summary": "Comportement anormal d\u00e9tect\u00e9 sur postgresql",
+      "started_at": "2026-04-24T13:31:55.679065",
+      "affected_pods": [
+        "postgresql-primary-0"
+      ],
+      "firing_count": 1,
+      "resolved_count": 0,
+      "total_alerts": 1,
+      "source": "anomaly_detection",
+      "anomaly_score": 0.7169063913333683,
+      "raw_metrics": {
+        "cpu": 0.08916228319322576,
+        "memory": 309739520.0,
+        "up": 1.0
+      }
+    },
+    "analysis": {
+      "anomalie": "Le pod postgresql-primary-0 est DOWN (Up=0) avec 7 restarts, indiquant un CrashLoop. Les logs montrent l'erreur exacte : 'ERROR:  column \"checkpoints_timed\" does not exist at character 10'. Les \u00e9v\u00e9nements indiquent des \u00e9checs de la sonde de readiness avec des messages : 'rejecting connections' et 'no response'.",
+      "cause_probable": "Le pod postgresql-primary-0 \u00e9choue \u00e0 d\u00e9marrer correctement en raison d'une requ\u00eate SQL qui \u00e9choue \u00e0 cause de l'absence de la colonne 'checkpoints_timed' dans la vue pg_stat_bgwriter. Cela emp\u00eache le collecteur de m\u00e9triques de fonctionner, entra\u00eenant des \u00e9checs de readiness et des red\u00e9marrages continus.",
+      "services_impactes": [
+        "postgresql-primary-0: DOWN"
+      ],
+      "severite_reelle": "CRITICAL",
+      "actions_correctives": [
+        "kubectl delete pod postgresql-primary-0 -n apps",
+        "kubectl apply -f <chemin_vers_le_manifest_de_deploiement> -n apps",
+        "kubectl logs postgresql-primary-0 -n apps --previous",
+        "kubectl get pods -n apps"
+      ],
+      "commandes_diagnostic": [
+        "kubectl describe pod postgresql-primary-0 -n apps",
+        "kubectl get events -n apps --sort-by='.metadata.creationTimestamp'",
+        "kubectl exec -it postgresql-primary-0 -n apps -- psql -c 'SELECT * FROM pg_stat_bgwriter;'"
+      ],
+      "prevention": "V\u00e9rifier la version de PostgreSQL utilis\u00e9e et s'assurer que la colonne 'checkpoints_timed' est disponible. Mettre \u00e0 jour les requ\u00eates de collecte de m\u00e9triques pour qu'elles soient compatibles avec la version de PostgreSQL d\u00e9ploy\u00e9e."
+    }
+  },
+  "273627cb": {
+    "parsed": {
+      "name": "AnomalyDetected_Mongodb",
+      "service": "mongodb-0",
+      "job": "mongodb-metrics",
+      "namespace": "apps",
+      "severity": "warning",
+      "status": "firing",
+      "description": "Anomalie ML d\u00e9tect\u00e9e sur mongodb \u2014 Score d'anomalie : 0.61 \u2014 comportement inhabituel d\u00e9tect\u00e9",
+      "summary": "Comportement anormal d\u00e9tect\u00e9 sur mongodb",
+      "started_at": "2026-04-24T14:41:18.187121",
+      "affected_pods": [
+        "mongodb-0"
+      ],
+      "firing_count": 1,
+      "resolved_count": 0,
+      "total_alerts": 1,
+      "source": "anomaly_detection",
+      "anomaly_score": 0.6110441031822458,
+      "raw_metrics": {
+        "cpu": 0.4942262809692548,
+        "memory": 1070206976.0,
+        "up": 1.0
+      }
+    },
+    "analysis": {
+      "anomalie": "Le pod mongodb-0 est DOWN (Up=0) avec 2 restarts, indiquant un CrashLoop. Les logs montrent l'erreur exacte : \"Error connecting to mongodb-1.mongodb-headless.apps.svc.cluster.local:27017 :: caused by :: Could not find address for mongodb-1.mongodb-headless.apps.svc.cluster.local:27017: SocketException: onInvoke :: caused by :: Host not found (authoritative)\".",
+      "cause_probable": "Le pod mongodb-0 ne parvient pas \u00e0 se connecter \u00e0 mongodb-1 en raison d'un probl\u00e8me de r\u00e9solution DNS, ce qui entra\u00eene des \u00e9checs de heartbeat et des red\u00e9marrages fr\u00e9quents.",
+      "services_impactes": [
+        {
+          "service": "mongodb-0",
+          "etat": "DOWN"
+        }
+      ],
+      "severite_reelle": "CRITICAL",
+      "actions_correctives": [
+        "kubectl delete pod mongodb-0 -n apps",
+        "kubectl get pods -n apps",
+        "kubectl logs mongodb-0 -n apps",
+        "kubectl get endpoints mongodb-1 -n apps"
+      ],
+      "commandes_diagnostic": [
+        "kubectl describe pod mongodb-0 -n apps",
+        "kubectl get svc -n apps",
+        "kubectl exec -it mongodb-0 -n apps -- nslookup mongodb-1.mongodb-headless.apps.svc.cluster.local"
+      ],
+      "prevention": "Configurer un service DNS robuste et v\u00e9rifier la configuration des services headless pour \u00e9viter les probl\u00e8mes de r\u00e9solution d'adresse."
+    }
+  },
+  "17fc8f3e": {
+    "parsed": {
+      "name": "AnomalyDetected_Redpanda",
+      "service": "redpanda-0",
+      "job": "redpanda-metrics",
+      "namespace": "apps",
+      "severity": "warning",
+      "status": "firing",
+      "description": "Anomalie ML d\u00e9tect\u00e9e sur redpanda \u2014 Score d'anomalie : 0.59 \u2014 comportement inhabituel d\u00e9tect\u00e9",
+      "summary": "Comportement anormal d\u00e9tect\u00e9 sur redpanda",
+      "started_at": "2026-04-24T14:41:19.887970",
+      "affected_pods": [
+        "redpanda-0"
+      ],
+      "firing_count": 1,
+      "resolved_count": 0,
+      "total_alerts": 1,
+      "source": "anomaly_detection",
+      "anomaly_score": 0.5912693078123857,
+      "raw_metrics": {
+        "cpu": 0.041626945478724295,
+        "memory": 1069613056.0,
+        "up": 1.0
+      }
+    },
+    "analysis": {
+      "anomalie": "Le pod redpanda-0 est DOWN (Up=0) avec 5 restarts, indiquant un CrashLoop. Les logs montrent plusieurs avertissements : 'A Redpanda Enterprise Edition license is required to use the currently enabled feature(s): (partition_auto_balancing_continuous, core_balancing_continuous).' et 'forwarding signal', ce qui sugg\u00e8re des probl\u00e8mes de licence et des conditions d'E/S urgentes.",
+      "cause_probable": "Le service Redpanda ne peut pas d\u00e9marrer correctement en raison de l'absence d'une licence valide pour les fonctionnalit\u00e9s requises, ce qui entra\u00eene des red\u00e9marrages fr\u00e9quents et un \u00e9tat de service DOWN. Les signaux d'E/S urgents indiquent \u00e9galement des probl\u00e8mes potentiels de ressources ou de configuration.",
+      "services_impactes": [
+        {
+          "service": "redpanda-0",
+          "etat": "DOWN"
+        },
+        {
+          "service": "postgresql-primary-0",
+          "etat": "Unhealthy"
+        }
+      ],
+      "severite_reelle": "CRITICAL",
+      "actions_correctives": [
+        "kubectl delete pod redpanda-0 -n apps",
+        "kubectl apply -f <configuration_correcte_avec_licence> -n apps",
+        "kubectl rollout status deployment/redpanda -n apps",
+        "kubectl get pods -n apps"
+      ],
+      "commandes_diagnostic": [
+        "kubectl logs redpanda-0 -n apps",
+        "kubectl describe pod redpanda-0 -n apps",
+        "kubectl get events -n apps --sort-by='.metadata.creationTimestamp'"
+      ],
+      "prevention": "S'assurer que la licence Redpanda est valide et configur\u00e9e correctement avant d'activer les fonctionnalit\u00e9s avanc\u00e9es. Mettre en place des alertes pour surveiller l'\u00e9tat des pods et les licences."
+    }
+  }
+}

@@ -1,7 +1,6 @@
 import subprocess
 import time
 
-# ── Commandes autorisées ──────────────────────────────────────
 SAFE_COMMANDS = [
     "kubectl get",
     "kubectl describe",
@@ -10,10 +9,8 @@ SAFE_COMMANDS = [
     "kubectl scale",
     "kubectl delete pod",
     "kubectl top",
-    "kubectl exec",
 ]
 
-# ── Commandes interdites ──────────────────────────────────────
 DANGEROUS_COMMANDS = [
     "kubectl delete namespace",
     "kubectl delete deployment",
@@ -24,36 +21,63 @@ DANGEROUS_COMMANDS = [
     "dd ",
 ]
 
+def clean_command(cmd):
+    """Supprime les options bloquantes"""
+    cmd = cmd.replace("--watch", "").strip()
+    cmd = cmd.replace(" -w ", " ").strip()
+    cmd = cmd.replace("exec -it", "exec").strip()
+    cmd = cmd.replace("exec -i ", "exec ").strip()
+    # Fix statefulset vs deployment
+    cmd = cmd.replace(
+        "rollout restart deployment keycloak",
+        "rollout restart statefulset/keycloak"
+    )
+    cmd = cmd.replace(
+        "rollout restart deployment postgresql",
+        "rollout restart statefulset/postgresql-primary"
+    )
+    cmd = cmd.replace(
+        "rollout restart deployment mongodb",
+        "rollout restart statefulset/mongodb"
+    )
+    cmd = cmd.replace(
+        "rollout restart deployment redis",
+        "rollout restart statefulset/redis-master"
+    )
+    cmd = cmd.replace(
+        "rollout restart deployment redpanda",
+        "rollout restart statefulset/redpanda"
+    )
+    return cmd
+
 def is_safe_command(cmd):
-    """Vérifie si la commande est safe à executer"""
-
     cmd_lower = cmd.lower().strip()
-
-    # Vérifier commandes dangereuses
     for dangerous in DANGEROUS_COMMANDS:
         if dangerous in cmd_lower:
             print(f"[REMEDIATION] ❌ Commande dangereuse bloquée : {cmd}")
             return False
-
-    # Vérifier commandes autorisées
     for safe in SAFE_COMMANDS:
         if cmd_lower.startswith(safe.lower()):
             return True
-
     print(f"[REMEDIATION] ⚠️ Commande non autorisée : {cmd}")
     return False
 
 def execute_command(cmd):
-    """Execute une commande kubectl et retourne le résultat"""
+    """Execute une commande kubectl"""
+    # Nettoyer les options bloquantes
+    cmd_clean = clean_command(cmd)
+    if cmd_clean != cmd:
+        print(f"[REMEDIATION] 🔧 Commande adaptée : {cmd_clean}")
+
     try:
         result = subprocess.run(
-            cmd,
+            cmd_clean,
             shell=True,
             capture_output=True,
             text=True,
             timeout=30
         )
-        output = result.stdout.strip() or result.stderr.strip()
+        output  = result.stdout.strip() or result.stderr.strip()
         success = result.returncode == 0
         return success, output
 
@@ -63,11 +87,9 @@ def execute_command(cmd):
         return False, str(e)
 
 def execute_remediation(analysis):
-    """Execute toutes les actions correctives"""
-
-    actions  = analysis.get('actions_correctives', [])
-    results  = []
-    total    = len(actions)
+    actions = analysis.get('actions_correctives', [])
+    results = []
+    total   = len(actions)
 
     if not actions:
         print("[REMEDIATION] ⚠️ Aucune action corrective à executer")
@@ -80,7 +102,6 @@ def execute_remediation(analysis):
         print(f"\n[REMEDIATION] ▶️ Commande {i}/{total}")
         print(f"[REMEDIATION] $ {cmd}")
 
-        # Vérifier si safe
         if not is_safe_command(cmd):
             results.append({
                 "command": cmd,
@@ -90,7 +111,6 @@ def execute_remediation(analysis):
             })
             continue
 
-        # Executer la commande
         success, output = execute_command(cmd)
 
         if success:
@@ -108,10 +128,8 @@ def execute_remediation(analysis):
             "skipped": False
         })
 
-        # Pause entre les commandes
         time.sleep(2)
 
-    # Résumé
     success_count = sum(1 for r in results if r['success'])
     print(f"\n[REMEDIATION] 📊 Résultat : {success_count}/{total} commandes réussies")
     print("="*60)
@@ -119,15 +137,12 @@ def execute_remediation(analysis):
     return results
 
 def format_remediation_results(results):
-    """Formate les résultats pour le PDF et l'email"""
     if not results:
         return "Aucune remédiation effectuée."
-
     lines = []
     for i, r in enumerate(results, 1):
         status = "✅" if r['success'] else "❌" if not r.get('skipped') else "⚠️"
         lines.append(f"{status} Commande {i}: {r['command']}")
         if r['output']:
             lines.append(f"   → {r['output'][:200]}")
-
     return "\n".join(lines)
