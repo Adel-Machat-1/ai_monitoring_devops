@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/agent-ia
+  IMAGE_NAME: adel-machat-1/agent-ia
 
 jobs:
   test:
