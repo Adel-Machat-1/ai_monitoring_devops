@@ -9,12 +9,11 @@ from reports.email_sender import send_email_report
 from core.state import pending_remediations
 
 alert_queue = queue.Queue()
-_processing = set()  # ← tracker pour éviter doublons
+_processing = set()
 
 def process_alert(parsed, metrics, logs, events):
     """Pipeline complet de traitement d'une alerte"""
 
-    # ── Anti-doublon processing ───────────────────────────────
     alert_key = f"{parsed['name']}_{parsed['service']}"
     if alert_key in _processing:
         print(f"[QUEUE] ⚠️ Déjà en cours : {alert_key} — ignoré")
@@ -30,12 +29,13 @@ def process_alert(parsed, metrics, logs, events):
         try:
             if logs is None:
                 logs_limited = []
+            elif isinstance(logs, dict):
+                streams = logs.get("data", {}).get("result", [])
+                logs_limited = streams[:3] if streams else []
             elif isinstance(logs, list):
                 logs_limited = logs[:3]
-            elif isinstance(logs, dict):
-                logs_limited = [logs]
             elif isinstance(logs, str):
-                logs_limited = [{"values": [[0, logs[:500]]]}]
+                logs_limited = [{"stream": {}, "values": [[0, logs[:500]]]}]
             else:
                 logs_limited = []
         except:
@@ -72,7 +72,6 @@ def process_alert(parsed, metrics, logs, events):
         return analysis
 
     finally:
-        # ── Libérer le tracker ────────────────────────────────
         _processing.discard(alert_key)
 
 

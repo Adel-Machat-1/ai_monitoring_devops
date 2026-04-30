@@ -18,7 +18,8 @@ spec:
         - alert: PostgresDown
           expr: absent(up{job="postgresql-primary-metrics"}) or up{job="postgresql-primary-metrics"} == 0
           for: 30s
-          labels:
+          labels:0.
+          
             severity: critical
           annotations:
             summary: "PostgreSQL is DOWN"
