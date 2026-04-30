@@ -5,11 +5,13 @@ metadata:
   namespace: monitoring
   labels:
     app: {{ .Release.Name }}
+    version: {{ .Chart.AppVersion }}
 spec:
   type: {{ .Values.service.type }}
   selector:
     app: {{ .Release.Name }}
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: {{ .Values.service.port }}
       targetPort: 5000

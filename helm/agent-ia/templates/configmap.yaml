@@ -5,8 +5,12 @@ metadata:
   namespace: monitoring
 data:
   PROMETHEUS_URL: {{ .Values.config.prometheusUrl | quote }}
-  LOKI_URL: {{ .Values.config.lokiUrl | quote }}
+  LOKI_URL:       {{ .Values.config.lokiUrl       | quote }}
   MINIO_ENDPOINT: {{ .Values.config.minioEndpoint | quote }}
-  MINIO_BUCKET: {{ .Values.config.minioBucket | quote }}
-  EMAIL_TO: {{ .Values.config.emailTo | quote }}
-  EMAIL_FROM: {{ .Values.config.emailFrom | quote }}
+  MINIO_BUCKET:   {{ .Values.config.minioBucket   | quote }}
+  MINIO_SECURE:   {{ .Values.config.minioSecure   | quote }}
+  DEDUP_WINDOW:   {{ .Values.config.dedupWindow   | quote }}
+  GMAIL_HOST:     {{ .Values.config.gmailHost     | quote }}
+  GMAIL_PORT:     {{ .Values.config.gmailPort     | quote }}
+  EMAIL_FROM:     {{ .Values.config.emailFrom     | quote }}
+  EMAIL_TO:       {{ .Values.config.emailTo       | quote }}

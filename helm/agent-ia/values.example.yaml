@@ -1,4 +1,8 @@
-
+# ══════════════════════════════════════════════════════════════
+# values.example.yaml — Agent IA Kubernetes Monitoring
+# Copier ce fichier vers values.yaml et remplir vos valeurs
+# NE PAS commiter values.yaml sur GitHub !
+# ══════════════════════════════════════════════════════════════
 
 # ── Image Docker ──────────────────────────────────────────────
 image:
@@ -11,8 +15,10 @@ service:
   type: ClusterIP
   port: 5000
 
+# ── Replicas ──────────────────────────────────────────────────
 replicaCount: 1
 
+# ── Resources ─────────────────────────────────────────────────
 resources:
   requests:
     memory: "512Mi"
@@ -21,19 +27,24 @@ resources:
     memory: "1Gi"
     cpu: "500m"
 
-# ── Configuration (pas de secrets) ───────────────────────────
+# ── Configuration (sans secrets) ──────────────────────────────
 config:
-  prometheusUrl: "http://prometheus-kube-prometheus-prometheus.monitoring:9090"
-  lokiUrl: "http://loki-gateway.monitoring:80"
+  prometheusUrl: "http://monitoring-kube-prometheus-prometheus.monitoring:9090"
+  lokiUrl:       "http://loki-gateway.monitoring:80"
   minioEndpoint: "minio.apps:9000"
-  minioBucket: "incident-reports"
-  emailTo: "votre.email@gmail.com"
-  emailFrom: "agent-ia@kubernetes-monitoring.com"
+  minioBucket:   "incident-reports"
+  minioSecure:   "false"
+  dedupWindow:   "1800"
+  gmailHost:     "smtp.gmail.com"
+  gmailPort:     "587"
+  emailFrom:     "votre.email@gmail.com"
+  emailTo:       "destinataire@gmail.com"
 
-# ── Secrets — NE PAS commiter values.yaml avec vraies valeurs !
+# ── Secrets — Remplacer par vos vraies valeurs ─────────────────
+# NE PAS commiter values.yaml avec les vraies valeurs !
 secrets:
-  githubToken: "VOTRE_GITHUB_TOKEN"
-  mailtrapUsername: "VOTRE_MAILTRAP_USERNAME"
-  mailtrapPassword: "VOTRE_MAILTRAP_PASSWORD"
+  githubToken:    "VOTRE_GITHUB_TOKEN"
+  gmailUsername:  "VOTRE_EMAIL@gmail.com"
+  gmailPassword:  "VOTRE_GMAIL_APP_PASSWORD"
   minioAccessKey: "VOTRE_MINIO_ACCESS_KEY"
   minioSecretKey: "VOTRE_MINIO_SECRET_KEY"

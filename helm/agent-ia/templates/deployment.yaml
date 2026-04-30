@@ -23,6 +23,7 @@ spec:
           ports:
             - containerPort: 5000
           env:
+            # ── ConfigMap ──────────────────────────────────────
             - name: PROMETHEUS_URL
               valueFrom:
                 configMapKeyRef:
@@ -43,31 +44,53 @@ spec:
                 configMapKeyRef:
                   name: {{ .Release.Name }}-config
                   key: MINIO_BUCKET
-            - name: EMAIL_TO
+            - name: MINIO_SECURE
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Release.Name }}-config
-                  key: EMAIL_TO
+                  key: MINIO_SECURE
+            - name: DEDUP_WINDOW
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Release.Name }}-config
+                  key: DEDUP_WINDOW
+            - name: GMAIL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Release.Name }}-config
+                  key: GMAIL_HOST
+            - name: GMAIL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Release.Name }}-config
+                  key: GMAIL_PORT
             - name: EMAIL_FROM
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Release.Name }}-config
                   key: EMAIL_FROM
+            - name: EMAIL_TO
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Release.Name }}-config
+                  key: EMAIL_TO
+
+            # ── Secrets ───────────────────────────────────────
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: GITHUB_TOKEN
-            - name: MAILTRAP_USERNAME
+            - name: GMAIL_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
-                  key: MAILTRAP_USERNAME
-            - name: MAILTRAP_PASSWORD
+                  key: GMAIL_USERNAME
+            - name: GMAIL_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
-                  key: MAILTRAP_PASSWORD
+                  key: GMAIL_PASSWORD
             - name: MINIO_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
@@ -78,12 +101,14 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: MINIO_SECRET_KEY
+
+            # ── Python unbuffered ─────────────────────────────
+            - name: PYTHONUNBUFFERED
+              value: "1"
+
           volumeMounts:
             - name: models
               mountPath: /app/models
-            - name: config-py
-              mountPath: /app/config.py
-              subPath: config.py
           resources:
             requests:
               memory: {{ .Values.resources.requests.memory }}
@@ -106,8 +131,5 @@ spec:
       volumes:
         - name: models
           hostPath:
-            path: /app/models        # ← persistant sur le node
-            type: DirectoryOrCreate  # ← crée si absent
-        - name: config-py
-          configMap:
-            name: agent-ia-config-py
+            path: /app/models
+            type: DirectoryOrCreate
