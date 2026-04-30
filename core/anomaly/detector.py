@@ -78,7 +78,7 @@ def load_model(app_name):
     scaler = joblib.load(scaler_path)
     return model, scaler
 # Seuil minimum pour déclencher une alerte
-MIN_ANOMALY_SCORE = 0.50
+MIN_ANOMALY_SCORE = 0.65
 
 def detect_anomaly(app_name, current_metrics):
     """Détecte si les métriques actuelles sont anormales"""
