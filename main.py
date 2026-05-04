@@ -15,6 +15,12 @@ from core.state import pending_remediations          # ← AJOUT
 from core.auto_remediation import execute_remediation # ← AJOUT
 from datetime import datetime
 
+from reports.minio_uploader import upload_to_minio
+from reports.pdf_generator import generate_remediation_pdf
+
+from reports.minio_uploader import upload_to_minio, upload_remediation_to_minio
+
+
 app = Flask(__name__)
 recent_alerts = {}
 
@@ -79,7 +85,7 @@ def receive_alert():
 def approve_remediation(incident_id):
     incident = pending_remediations.get(incident_id)
     if not incident:
-        return f"""
+         return f"""
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
@@ -93,22 +99,32 @@ def approve_remediation(incident_id):
     <td style="background:linear-gradient(135deg,#1a1a2e,#0f3460);
                padding:28px;text-align:center;">
       <p style="font-size:38px;margin:0 0 6px;">🤖</p>
-      <h1 style="color:white;margin:0;font-size:20px;letter-spacing:1px;">
+      <h1 style="color:white;margin:0;font-size:20px;">
         Agent IA — Kubernetes Monitoring
       </h1>
     </td>
   </tr>
   <tr>
     <td style="padding:40px;text-align:center;">
-      <p style="font-size:48px;margin:0 0 16px;">❌</p>
-      <h2 style="color:#1a202c;margin:0 0 8px;">Incident introuvable</h2>
-      <p style="color:#718096;font-size:14px;">
-        L'incident <b>{incident_id}</b> n'existe pas ou a déjà été traité.
+      <p style="font-size:48px;margin:0 0 16px;">✅</p>
+      <h2 style="color:#38a169;margin:0 0 8px;">
+        Déjà traité !
+      </h2>
+      <p style="color:#718096;font-size:14px;line-height:1.6;">
+        Cet incident a déjà été approuvé et traité.<br>
+        La remédiation a été exécutée avec succès.<br><br>
+        <b style="color:#4a5568;">Pas besoin de cliquer à nouveau.</b>
       </p>
+      <div style="background:#f0fff4;border:1px solid #c6f6d5;
+                  border-radius:10px;padding:16px;margin-top:20px;">
+        <p style="margin:0;color:#276749;font-size:13px;">
+          Incident ID : <b style="font-family:monospace;">{incident_id}</b>
+        </p>
+      </div>
     </td>
   </tr>
   <tr>
-    <td style="background:#2d3748;padding:18px 30px;text-align:center;">
+    <td style="background:#2d3748;padding:18px;text-align:center;">
       <p style="color:#a0aec0;margin:0;font-size:12px;">
         Agent IA Kubernetes — Monitoring automatisé
       </p>
@@ -119,14 +135,26 @@ def approve_remediation(incident_id):
 </table>
 </body>
 </html>
-        """, 404
+        """, 200
 
     parsed   = incident['parsed']
     analysis = incident['analysis']
 
     print(f"\n[REMEDIATION] ✅ Approbation reçue pour {parsed['name']}")
     results = execute_remediation(analysis)
+
     del pending_remediations[incident_id]
+
+    try:
+        pdf_bytes, filename = generate_remediation_pdf(
+            parsed, results, incident_id  # ← passer incident_id
+        )
+        minio_url = upload_remediation_to_minio(pdf_bytes, filename)
+        print(f"[REMEDIATION] ✅ PDF sauvegardé : {minio_url}")
+    except Exception as e:
+        print(f"[REMEDIATION] ⚠️ Erreur PDF : {e}")
+
+
 
     success_count = sum(1 for r in results if r['success'])
     total         = len(results)

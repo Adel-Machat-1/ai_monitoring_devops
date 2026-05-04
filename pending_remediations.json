@@ -1100,5 +1100,310 @@
       ],
       "prevention": "S'assurer que tous les volumes n\u00e9cessaires sont correctement enregistr\u00e9s et disponibles avant le d\u00e9ploiement du pod. Mettre en place des v\u00e9rifications de sant\u00e9 plus robustes et des alertes pour les probes de readiness."
     }
+  },
+  "848e489f": {
+    "parsed": {
+      "name": "KeycloakDown",
+      "service": "keycloak-1",
+      "job": "keycloak-metrics",
+      "namespace": "apps",
+      "severity": "critical",
+      "status": "resolved",
+      "description": "The Keycloak exporter has not responded",
+      "summary": "Keycloak is DOWN",
+      "started_at": "2026-04-30T10:34:32.195Z",
+      "affected_pods": [
+        "keycloak-0",
+        "keycloak-1"
+      ],
+      "firing_count": 2,
+      "resolved_count": 1,
+      "total_alerts": 3
+    },
+    "analysis": {
+      "anomalie": "Le service keycloak-1 est DOWN (Up=0) avec 7 restarts, indiquant un CrashLoop. Les logs montrent plusieurs avertissements : 'JOIN(keycloak-1-51355) sent to keycloak-1-1754 timed out (after 2000 ms), on try 5'. Les \u00e9v\u00e9nements indiquent \u00e9galement des \u00e9checs de probes de sant\u00e9 : 'Readiness probe failed: Get \"http://10.42.2.104:8080/realms/master\": dial tcp 10.42.2.104:8080: conn' et 'Liveness probe failed: dial tcp 10.42.2.104:8080: connect: connection refused'.",
+      "cause_probable": "Le pod keycloak-0 ne parvient pas \u00e0 se connecter \u00e0 son cluster JGroups, ce qui entra\u00eene des timeouts lors des tentatives de connexion. Cela provoque des \u00e9checs de probes de sant\u00e9, entra\u00eenant un red\u00e9marrage constant du pod.",
+      "services_impactes": [
+        "keycloak-1: DOWN"
+      ],
+      "severite_reelle": "CRITICAL",
+      "actions_correctives": [
+        "kubectl delete pod keycloak-0 -n apps",
+        "kubectl rollout restart deployment keycloak-1 -n apps",
+        "kubectl describe pod keycloak-0 -n apps",
+        "kubectl get pods -n apps"
+      ],
+      "commandes_diagnostic": [
+        "kubectl logs keycloak-0 -n apps",
+        "kubectl get events -n apps",
+        "kubectl exec -it keycloak-0 -n apps -- curl http://10.42.2.104:8080/realms/master"
+      ],
+      "prevention": "V\u00e9rifier la configuration du r\u00e9seau et des probes de sant\u00e9 pour s'assurer qu'elles sont adapt\u00e9es \u00e0 l'environnement de production. Mettre en place des alertes pour les timeouts de JGroups."
+    }
+  },
+  "345a28ac": {
+    "parsed": {
+      "name": "AnomalyDetected_Postgresql",
+      "service": "postgresql-primary-0",
+      "job": "postgresql-metrics",
+      "namespace": "apps",
+      "severity": "warning",
+      "status": "firing",
+      "description": "Anomalie ML d\u00e9tect\u00e9e sur postgresql \u2014 Score d'anomalie : 0.72 \u2014 comportement inhabituel d\u00e9tect\u00e9",
+      "summary": "Comportement anormal d\u00e9tect\u00e9 sur postgresql",
+      "started_at": "2026-04-30T14:21:53.895543",
+      "affected_pods": [
+        "postgresql-primary-0"
+      ],
+      "firing_count": 1,
+      "resolved_count": 0,
+      "total_alerts": 1,
+      "source": "anomaly_detection",
+      "anomaly_score": 0.7169063913333683,
+      "raw_metrics": {
+        "cpu": 0.09441965231561997,
+        "memory": 311107584.0,
+        "up": 1.0
+      }
+    },
+    "analysis": {
+      "error": "Connection error."
+    }
+  },
+  "211ce66d": {
+    "parsed": {
+      "name": "AnomalyDetected_Postgresql",
+      "service": "postgresql-primary-0",
+      "job": "postgresql-metrics",
+      "namespace": "apps",
+      "severity": "warning",
+      "status": "firing",
+      "description": "Anomalie ML d\u00e9tect\u00e9e sur postgresql \u2014 Score d'anomalie : 0.62 \u2014 comportement inhabituel d\u00e9tect\u00e9",
+      "summary": "Comportement anormal d\u00e9tect\u00e9 sur postgresql",
+      "started_at": "2026-04-30T14:44:32.712580",
+      "affected_pods": [
+        "postgresql-primary-0"
+      ],
+      "firing_count": 1,
+      "resolved_count": 0,
+      "total_alerts": 1,
+      "source": "anomaly_detection",
+      "anomaly_score": 0.6167192282905861,
+      "raw_metrics": {
+        "cpu": 0.0853414302591786,
+        "memory": 333402112.0,
+        "up": 1.0
+      }
+    },
+    "analysis": {
+      "anomalie": "Le pod postgresql-primary-0 est DOWN (Up=0) et g\u00e9n\u00e8re des erreurs dans les logs : 'ERROR: column \"checkpoints_timed\" does not exist at character 10'.",
+      "cause_probable": "Le pod postgresql-primary-0 est tomb\u00e9 en panne en raison d'une requ\u00eate SQL tentant d'acc\u00e9der \u00e0 une colonne inexistante dans la vue pg_stat_bgwriter, ce qui a probablement caus\u00e9 l'arr\u00eat du service.",
+      "services_impactes": [
+        "postgresql-primary-0: DOWN"
+      ],
+      "severite_reelle": "CRITICAL",
+      "actions_correctives": [
+        "kubectl delete pod postgresql-primary-0 -n apps",
+        "kubectl apply -f <fichier_de_configuration_postgresql> -n apps",
+        "kubectl rollout status deployment/postgresql -n apps",
+        "kubectl logs postgresql-primary-0 -n apps --previous"
+      ],
+      "commandes_diagnostic": [
+        "kubectl describe pod postgresql-primary-0 -n apps",
+        "kubectl get pods -n apps",
+        "kubectl exec -it postgresql-primary-0 -n apps -- psql -c 'SELECT * FROM pg_stat_bgwriter;'"
+      ],
+      "prevention": "V\u00e9rifier et mettre \u00e0 jour la version de PostgreSQL pour s'assurer que toutes les colonnes n\u00e9cessaires existent dans les vues, et ajouter des tests pour valider les requ\u00eates SQL avant leur ex\u00e9cution."
+    }
+  },
+  "832ab49d": {
+    "parsed": {
+      "name": "AppPodNotReady",
+      "service": "keycloak-0",
+      "job": "kube-state-metrics",
+      "namespace": "apps",
+      "severity": "warning",
+      "status": "firing",
+      "description": "Pod keycloak-0 has been failing readiness",
+      "summary": "Pod not ready: keycloak-0",
+      "started_at": "2026-04-30T14:24:02.195Z",
+      "affected_pods": [
+        "keycloak-0",
+        "keycloak-1",
+        "redpanda-0",
+        "redpanda-console-8494669464-77h98"
+      ],
+      "firing_count": 2,
+      "resolved_count": 2,
+      "total_alerts": 4
+    },
+    "analysis": {
+      "anomalie": "Le pod keycloak-0 dans le namespace apps est en \u00e9tat 'not ready' avec 6 red\u00e9marrages. Les logs montrent l'erreur exacte : 'Readiness probe failed: Get \"http://10.42.2.150:8080/realms/master\": dial tcp 10.42.2.150:8080: conn'. Les \u00e9v\u00e9nements indiquent \u00e9galement des \u00e9checs de liveness probe et des changements de sandbox.",
+      "cause_probable": "Le pod keycloak-0 \u00e9choue \u00e0 r\u00e9pondre aux probes de readiness et de liveness, ce qui entra\u00eene des red\u00e9marrages fr\u00e9quents (CrashLoopBackOff). Cela peut \u00eatre d\u00fb \u00e0 une surcharge de ressources, une mauvaise configuration du service ou un probl\u00e8me de connectivit\u00e9 r\u00e9seau.",
+      "services_impactes": [
+        {
+          "service": "keycloak-0",
+          "etat": "DOWN"
+        }
+      ],
+      "severite_reelle": "CRITICAL",
+      "actions_correctives": [
+        "kubectl delete pod keycloak-0 -n apps",
+        "kubectl rollout restart deployment keycloak -n apps",
+        "kubectl describe pod keycloak-0 -n apps",
+        "kubectl get pods -n apps"
+      ],
+      "commandes_diagnostic": [
+        "kubectl logs keycloak-0 -n apps",
+        "kubectl get events -n apps --sort-by='.metadata.creationTimestamp'",
+        "kubectl exec -it keycloak-0 -n apps -- curl -I http://localhost:8080/realms/master"
+      ],
+      "prevention": "Configurer des limites de ressources appropri\u00e9es pour le pod keycloak-0 et s'assurer que les probes de readiness et de liveness sont correctement d\u00e9finies pour \u00e9viter les red\u00e9marrages fr\u00e9quents."
+    }
+  },
+  "01fa2227": {
+    "parsed": {
+      "name": "AnomalyDetected_Postgresql",
+      "service": "postgresql-primary-0",
+      "job": "postgresql-metrics",
+      "namespace": "apps",
+      "severity": "warning",
+      "status": "firing",
+      "description": "Anomalie ML d\u00e9tect\u00e9e sur postgresql \u2014 Score d'anomalie : 0.72 \u2014 comportement inhabituel d\u00e9tect\u00e9",
+      "summary": "Comportement anormal d\u00e9tect\u00e9 sur postgresql",
+      "started_at": "2026-04-30T15:27:47.880309",
+      "affected_pods": [
+        "postgresql-primary-0"
+      ],
+      "firing_count": 1,
+      "resolved_count": 0,
+      "total_alerts": 1,
+      "source": "anomaly_detection",
+      "anomaly_score": 0.7169063913333683,
+      "raw_metrics": {
+        "cpu": 0.1324372211114647,
+        "memory": 306716672.0,
+        "up": 1.0
+      }
+    },
+    "analysis": {
+      "anomalie": "Le pod postgresql-primary-0 est DOWN (Up=0) avec 3 restarts, indiquant un CrashLoop. Les logs montrent l'erreur exacte : \"pq: column \\\"checkpoints_timed\\\" does not exist\".",
+      "cause_probable": "Le pod postgresql-primary-0 \u00e9choue \u00e0 d\u00e9marrer correctement en raison d'une incompatibilit\u00e9 de version de la base de donn\u00e9es, o\u00f9 la colonne 'checkpoints_timed' n'existe pas dans la version actuelle de PostgreSQL utilis\u00e9e par le pod.",
+      "services_impactes": [
+        {
+          "service": "postgresql-primary-0",
+          "etat": "DOWN"
+        }
+      ],
+      "severite_reelle": "CRITICAL",
+      "actions_correctives": [
+        "kubectl delete pod postgresql-primary-0 -n apps",
+        "kubectl apply -f <chemin_vers_le_fichier_de_configuration_postgresql> -n apps",
+        "kubectl rollout status deployment/postgresql -n apps",
+        "kubectl logs postgresql-primary-0 -n apps --previous"
+      ],
+      "commandes_diagnostic": [
+        "kubectl describe pod postgresql-primary-0 -n apps",
+        "kubectl get pods -n apps",
+        "kubectl exec -it postgresql-primary-0 -n apps -- psql -c 'SELECT * FROM pg_stat_bgwriter;'"
+      ],
+      "prevention": "Mettre \u00e0 jour l'image Docker de PostgreSQL vers une version compatible avec les colonnes attendues ou ajuster les requ\u00eates SQL pour qu'elles correspondent \u00e0 la version de PostgreSQL d\u00e9ploy\u00e9e."
+    }
+  },
+  "44e8da0c": {
+    "parsed": {
+      "name": "AnomalyDetected_Redis",
+      "service": "redis-master-0",
+      "job": "redis-metrics",
+      "namespace": "apps",
+      "severity": "warning",
+      "status": "firing",
+      "description": "Anomalie ML d\u00e9tect\u00e9e sur redis \u2014 Score d'anomalie : 0.60 \u2014 comportement inhabituel d\u00e9tect\u00e9",
+      "summary": "Comportement anormal d\u00e9tect\u00e9 sur redis",
+      "started_at": "2026-04-30T15:27:49.682044",
+      "affected_pods": [
+        "redis-master-0"
+      ],
+      "firing_count": 1,
+      "resolved_count": 0,
+      "total_alerts": 1,
+      "source": "anomaly_detection",
+      "anomaly_score": 0.5992013369156011,
+      "raw_metrics": {
+        "cpu": 0.4581811574972264,
+        "memory": 512344064.0,
+        "connections": 7.0,
+        "up": 4.0
+      }
+    },
+    "analysis": {
+      "anomalie": "Le pod redis-master-0 est DOWN (Up=0) et a rencontr\u00e9 des erreurs de montage de volume : 'MountVolume.SetUp failed for volume \"start-scripts\" : object \"apps\"/\"redis-scripts\" not registered', 'MountVolume.SetUp failed for volume \"config\" : object \"apps\"/\"redis-configuration\" not registered', 'MountVolume.SetUp failed for volume \"health\" : object \"apps\"/\"redis-health\" not registered', 'MountVolume.SetUp failed for volume \"redis-password\" : object \"apps\"/\"redis\" not registered'.",
+      "cause_probable": "Le pod redis-master-0 ne parvient pas \u00e0 d\u00e9marrer en raison de volumes non enregistr\u00e9s, ce qui emp\u00eache le montage des configurations n\u00e9cessaires au bon fonctionnement de Redis.",
+      "services_impactes": [
+        "redis-master-0 : DOWN"
+      ],
+      "severite_reelle": "CRITICAL",
+      "actions_correctives": [
+        "kubectl delete pod redis-master-0 -n apps",
+        "kubectl apply -f <fichier_de_configuration_correctif>.yaml -n apps",
+        "kubectl rollout status deployment redis-master -n apps",
+        "kubectl get pods -n apps"
+      ],
+      "commandes_diagnostic": [
+        "kubectl describe pod redis-master-0 -n apps",
+        "kubectl get pvc -n apps",
+        "kubectl get pv"
+      ],
+      "prevention": "S'assurer que tous les volumes n\u00e9cessaires sont correctement d\u00e9finis et enregistr\u00e9s avant le d\u00e9ploiement du pod, et mettre en place des v\u00e9rifications de sant\u00e9 pour les volumes."
+    }
+  },
+  "d984ba01": {
+    "parsed": {
+      "name": "AnomalyDetected_Redpanda",
+      "service": "redpanda-0",
+      "job": "redpanda-metrics",
+      "namespace": "apps",
+      "severity": "warning",
+      "status": "firing",
+      "description": "Anomalie ML d\u00e9tect\u00e9e sur redpanda \u2014 Score d'anomalie : 0.59 \u2014 comportement inhabituel d\u00e9tect\u00e9",
+      "summary": "Comportement anormal d\u00e9tect\u00e9 sur redpanda",
+      "started_at": "2026-04-30T15:27:50.567122",
+      "affected_pods": [
+        "redpanda-0"
+      ],
+      "firing_count": 1,
+      "resolved_count": 0,
+      "total_alerts": 1,
+      "source": "anomaly_detection",
+      "anomaly_score": 0.5934598036443051,
+      "raw_metrics": {
+        "cpu": 0.19945084658753753,
+        "memory": 1130930176.0,
+        "up": 1.0
+      }
+    },
+    "analysis": {
+      "anomalie": "Le pod redpanda-0 est DOWN (Up=0) avec 17 restarts, indiquant un CrashLoop. Les logs montrent l'erreur suivante : \"events is forbidden: User \\\"system:serviceaccount:apps:redpanda\\\" cannot create resource \\\"events\\\" in API group \\\"\\\" in the namespace \\\"apps\\\"\".",
+      "cause_probable": "Le pod redpanda-0 \u00e9choue \u00e0 cause d'un probl\u00e8me d'autorisation pour cr\u00e9er des \u00e9v\u00e9nements, ce qui peut affecter son fonctionnement normal. De plus, la pr\u00e9sence de plusieurs avertissements concernant l'absence d'une licence Redpanda Enterprise pour le mode d'\u00e9quilibrage des partitions pourrait \u00e9galement contribuer \u00e0 des comportements anormaux.",
+      "services_impactes": [
+        {
+          "service": "redpanda-0",
+          "etat": "DOWN"
+        }
+      ],
+      "severite_reelle": "CRITICAL",
+      "actions_correctives": [
+        "kubectl edit deployment redpanda -n apps",
+        "kubectl create rolebinding redpanda-events --clusterrole=edit --serviceaccount=apps:redpanda --namespace=apps",
+        "kubectl rollout restart deployment redpanda -n apps",
+        "kubectl get pods -n apps"
+      ],
+      "commandes_diagnostic": [
+        "kubectl describe pod redpanda-0 -n apps",
+        "kubectl get events -n apps",
+        "kubectl logs redpanda-0 -n apps"
+      ],
+      "prevention": "Mettre en place des r\u00f4les et des liaisons de r\u00f4les appropri\u00e9s pour le service account utilis\u00e9 par le pod redpanda afin d'\u00e9viter des probl\u00e8mes d'autorisation \u00e0 l'avenir. \u00c9valuer la n\u00e9cessit\u00e9 d'une licence Redpanda Enterprise pour les fonctionnalit\u00e9s utilis\u00e9es."
+    }
   }
 }

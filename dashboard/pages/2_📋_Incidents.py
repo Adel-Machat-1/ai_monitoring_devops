@@ -1,9 +1,9 @@
 import streamlit as st
 from minio import Minio
-from datetime import datetime, timedelta, date
+from datetime import datetime
 import pandas as pd
 
-st.set_page_config(page_title="Incidents", page_icon="📋", layout="wide")
+st.set_page_config(page_title="Incidents", page_icon="☸️", layout="wide")
 
 st.markdown("""
 <style>
@@ -28,14 +28,6 @@ st.markdown("""
         margin: 24px 0 16px; padding-bottom: 8px;
         border-bottom: 2px solid #e2e8f0;
     }
-
-    .row-item {
-        background: white; border-radius: 8px; padding: 12px 16px;
-        margin-bottom: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        border-left: 4px solid #e53e3e;
-    }
-    .row-item.warning { border-left-color: #ed8936; }
-
     .badge {
         display: inline-block; padding: 2px 8px; border-radius: 10px;
         font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
@@ -44,6 +36,7 @@ st.markdown("""
     .badge-warning  { background: #fffaf0; color: #ed8936; border: 1px solid #fbd38d; }
     .badge-ml       { background: #faf5ff; color: #805ad5; border: 1px solid #e9d8fd; }
     .badge-prom     { background: #ebf8ff; color: #3182ce; border: 1px solid #bee3f8; }
+    .badge-healed   { background: #f0fff4; color: #38a169; border: 1px solid #c6f6d5; }
 
     .col-header {
         background: #f0f4f8; padding: 10px 16px; border-radius: 8px;
@@ -51,7 +44,6 @@ st.markdown("""
         text-transform: uppercase; letter-spacing: 0.5px;
         margin-bottom: 6px;
     }
-
     .empty-state {
         background: white; border-radius: 12px; padding: 60px 40px;
         text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
@@ -61,7 +53,6 @@ st.markdown("""
         border: none !important; border-radius: 8px !important; font-weight: 600 !important;
     }
     .stDownloadButton button {
-        background: #38a169 !important; color: white !important;
         border: none !important; border-radius: 6px !important;
         font-size: 11px !important; padding: 4px 8px !important;
         width: 100% !important;
@@ -101,7 +92,31 @@ st.sidebar.caption(f"Vérification : {datetime.now().strftime('%H:%M:%S')}")
 # ── MinIO ─────────────────────────────────────────────────────
 @st.cache_resource
 def get_minio_client():
-    return Minio("localhost:9000", access_key="minioadmin", secret_key="minioadmin123", secure=False)
+    return Minio("localhost:9000", access_key="minioadmin",
+                 secret_key="minioadmin123", secure=False)
+
+@st.cache_data(ttl=30)
+def load_remediation_files():
+    """Charge les fichiers de remédiation depuis self-healing-reports"""
+    try:
+        client = get_minio_client()
+        # Créer le bucket s'il n'existe pas
+        if not client.bucket_exists("self-healing-reports"):
+            return {}
+        remediation_map = {}
+        for obj in client.list_objects("self-healing-reports"):
+            name  = obj.object_name
+            parts = name.replace(".pdf", "").split("_")
+            # Format: remediation_20260430_113843_abc123_KeycloakDown.pdf
+            if len(parts) >= 5:
+                incident_id = parts[3]  # ← abc123
+                remediation_map[incident_id] = {
+                    "filename": name,
+                    "size"    : f"{obj.size/1024:.1f} KB"
+                }
+        return remediation_map
+    except:
+        return {}
 
 @st.cache_data(ttl=30)
 def load_reports():
@@ -110,27 +125,59 @@ def load_reports():
         for obj in get_minio_client().list_objects("incident-reports"):
             name  = obj.object_name
             parts = name.replace(".pdf", "").split("_")
-            if len(parts) >= 4:
-                alert = "_".join(parts[3:])
-                severity = "warning"
-                type_inc = "Anomalie ML" if "Anomaly" in alert else "Alerte Prometheus"
-                if any(x in alert for x in ["Down", "Crash", "Unavailable", "NotReady"]):
-                    severity = "critical"
-                app = "Autre"
-                for k, v in {"keycloak":"Keycloak","postgres":"PostgreSQL","postgresql":"PostgreSQL",
-                             "mongodb":"MongoDB","mongo":"MongoDB","redis":"Redis","redpanda":"Redpanda"}.items():
-                    if k in alert.lower():
-                        app = v
-                        break
-                try:
-                    dt = datetime.strptime(f"{parts[1]}_{parts[2]}", "%Y%m%d_%H%M%S")
-                except:
-                    dt = datetime.now()
-                reports.append({
-                    "filename": name, "alert": alert, "date": dt.date(),
-                    "datetime": dt, "severity": severity, "type": type_inc,
-                    "app": app, "size": f"{obj.size/1024:.1f} KB"
-                })
+
+            # ── Nouveau format : incident_DATE_TIME_ID_ALERT ──
+            # incident_20260430_113825_abc123_KeycloakDown.pdf
+            if len(parts) >= 5:
+                date_str    = parts[1]
+                time_str    = parts[2]
+                incident_id = parts[3]
+                alert       = "_".join(parts[4:])
+            # ── Ancien format : incident_DATE_TIME_ALERT ──────
+            elif len(parts) >= 4:
+                date_str    = parts[1]
+                time_str    = parts[2]
+                incident_id = None
+                alert       = "_".join(parts[3:])
+            else:
+                continue
+
+            severity = "warning"
+            type_inc = "Anomalie ML" if "Anomaly" in alert else "Alerte Prometheus"
+            if any(x in alert for x in ["Down", "Crash", "Unavailable", "NotReady"]):
+                severity = "critical"
+
+            app = "Autre"
+            for k, v in {
+                "keycloak"  : "Keycloak",
+                "postgres"  : "PostgreSQL",
+                "postgresql": "PostgreSQL",
+                "mongodb"   : "MongoDB",
+                "mongo"     : "MongoDB",
+                "redis"     : "Redis",
+                "redpanda"  : "Redpanda",
+            }.items():
+                if k in alert.lower():
+                    app = v
+                    break
+
+            try:
+                dt = datetime.strptime(f"{date_str}_{time_str}", "%Y%m%d_%H%M%S")
+            except:
+                dt = datetime.now()
+
+            reports.append({
+                "filename"   : name,
+                "alert"      : alert,
+                "date"       : dt.date(),
+                "datetime"   : dt,
+                "severity"   : severity,
+                "type"       : type_inc,
+                "app"        : app,
+                "size"       : f"{obj.size/1024:.1f} KB",
+                "incident_id": incident_id,
+            })
+
         df = pd.DataFrame(reports)
         return df.sort_values("datetime", ascending=False) if not df.empty else df
     except Exception as e:
@@ -142,8 +189,8 @@ def load_reports():
 # ══════════════════════════════════════════════════════════════
 st.markdown("""
 <div class="page-header">
-    <h1>📋 Incidents</h1>
-    <p>Liste complète des incidents détectés sur le cluster Kubernetes</p>
+    <h1>📋 Incidents & Remédiation</h1>
+    <p>Liste complète des incidents et leurs rapports de self-healing</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -155,7 +202,8 @@ with c1:
 with c2:
     st.caption(f"⏱️ {datetime.now().strftime('%d/%m/%Y à %H:%M:%S')}")
 
-df = load_reports()
+df               = load_reports()
+remediation_map  = load_remediation_files()
 
 # ── Filtres ───────────────────────────────────────────────────
 st.markdown('<p class="section-title">🔍 Filtres</p>', unsafe_allow_html=True)
@@ -169,7 +217,8 @@ with c2:
 with c3:
     type_filter = st.selectbox("🏷️ Type", ["Tous", "Alerte Prometheus", "Anomalie ML"])
 with c4:
-    selected_date = st.date_input("📅 Jour", value=None, max_value=datetime.now().date(), format="DD/MM/YYYY")
+    selected_date = st.date_input("📅 Jour", value=None,
+                                   max_value=datetime.now().date(), format="DD/MM/YYYY")
 
 if "prev_date" not in st.session_state:
     st.session_state.prev_date = None
@@ -190,7 +239,7 @@ if selected_date:
     st.info(f"📅 {selected_date.strftime('%d/%m/%Y')} — {len(fdf)} incident(s)")
 
 # ── Pagination ────────────────────────────────────────────────
-PER_PAGE    = 6
+PER_PAGE    = 15
 total       = len(fdf)
 total_pages = max(1, -(-total // PER_PAGE))
 
@@ -199,13 +248,13 @@ if "page" not in st.session_state:
 if st.session_state.page > total_pages:
     st.session_state.page = 1
 
-page     = st.session_state.page
-start    = (page - 1) * PER_PAGE
-end      = start + PER_PAGE
-page_df  = fdf.iloc[start:end]
+page    = st.session_state.page
+start   = (page - 1) * PER_PAGE
+end     = start + PER_PAGE
+page_df = fdf.iloc[start:end]
 
 # ══════════════════════════════════════════════════════════════
-# TABLEAU — Header colonnes Streamlit
+# TABLEAU
 # ══════════════════════════════════════════════════════════════
 st.markdown(
     f'<p class="section-title">📋 Incidents ({total}) — Page {page}/{total_pages}</p>',
@@ -214,33 +263,39 @@ st.markdown(
 
 if not fdf.empty:
 
-    # Header colonnes
-    h1, h2, h3, h4, h5, h6, h7 = st.columns([3, 1.5, 2, 1.5, 2, 1, 1.2])
-    h1.markdown('<div class="col-header">Alerte</div>', unsafe_allow_html=True)
-    h2.markdown('<div class="col-header">Sévérité</div>', unsafe_allow_html=True)
-    h3.markdown('<div class="col-header">Type</div>', unsafe_allow_html=True)
-    h4.markdown('<div class="col-header">Application</div>', unsafe_allow_html=True)
+    # ── Header colonnes ───────────────────────────────────────
+    h1, h2, h3, h4, h5, h6, h7, h8 = st.columns([2.5, 1.3, 1.8, 1.3, 1.8, 0.9, 1.1, 1.3])
+    h1.markdown('<div class="col-header">Alerte</div>',       unsafe_allow_html=True)
+    h2.markdown('<div class="col-header">Sévérité</div>',     unsafe_allow_html=True)
+    h3.markdown('<div class="col-header">Type</div>',         unsafe_allow_html=True)
+    h4.markdown('<div class="col-header">Application</div>',  unsafe_allow_html=True)
     h5.markdown('<div class="col-header">Date & Heure</div>', unsafe_allow_html=True)
-    h6.markdown('<div class="col-header">Taille</div>', unsafe_allow_html=True)
-    h7.markdown('<div class="col-header">PDF</div>', unsafe_allow_html=True)
+    h6.markdown('<div class="col-header">Taille</div>',       unsafe_allow_html=True)
+    h7.markdown('<div class="col-header">Incident</div>',     unsafe_allow_html=True)
+    h8.markdown('<div class="col-header">🔧 Self-Healing</div>', unsafe_allow_html=True)
 
-    # Lignes
+    # ── Lignes ────────────────────────────────────────────────
     for _, row in page_df.iterrows():
-        is_crit   = row['severity'] == 'critical'
-        icon      = "🔴" if is_crit else "🟠"
-        b_sev     = "badge-critical" if is_crit else "badge-warning"
-        b_type    = "badge-ml" if row['type'] == "Anomalie ML" else "badge-prom"
-        sev_lbl   = "CRITICAL" if is_crit else "WARNING"
-        border    = "#e53e3e" if is_crit else "#ed8936"
+        is_crit = row['severity'] == 'critical'
+        icon    = "🔴" if is_crit else "🟠"
+        b_sev   = "badge-critical" if is_crit else "badge-warning"
+        b_type  = "badge-ml" if row['type'] == "Anomalie ML" else "badge-prom"
+        sev_lbl = "CRITICAL" if is_crit else "WARNING"
+        border  = "#e53e3e" if is_crit else "#ed8936"
 
-        c1, c2, c3, c4, c5, c6, c7 = st.columns([3, 1.5, 2, 1.5, 2, 1, 1.2])
+        # Vérifier si remédiation existe
+        incident_id      = row.get('incident_id')
+        remediation_info = remediation_map.get(incident_id) if incident_id else None
+        has_remediation  = remediation_info is not None
+
+        c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([2.5, 1.3, 1.8, 1.3, 1.8, 0.9, 1.1, 1.3])
 
         with c1:
             st.markdown(f"""
             <div style="padding:10px 12px;border-left:4px solid {border};
                         background:white;border-radius:6px;margin-bottom:4px;
                         box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-                <span style="font-size:13px;font-weight:600;color:#1a202c;">
+                <span style="font-size:12px;font-weight:600;color:#1a202c;">
                     {icon} {row['alert']}
                 </span>
             </div>""", unsafe_allow_html=True)
@@ -271,7 +326,7 @@ if not fdf.empty:
             st.markdown(f"""
             <div style="padding:10px 8px;background:white;border-radius:6px;
                         margin-bottom:4px;box-shadow:0 1px 3px rgba(0,0,0,0.05);
-                        font-size:12px;color:#718096;">
+                        font-size:11px;color:#718096;">
                 📅 {row['datetime'].strftime('%d/%m/%Y %H:%M')}
             </div>""", unsafe_allow_html=True)
 
@@ -279,24 +334,50 @@ if not fdf.empty:
             st.markdown(f"""
             <div style="padding:10px 8px;background:white;border-radius:6px;
                         margin-bottom:4px;box-shadow:0 1px 3px rgba(0,0,0,0.05);
-                        font-size:12px;color:#718096;">
+                        font-size:11px;color:#718096;">
                 {row['size']}
             </div>""", unsafe_allow_html=True)
 
+        # ── Bouton PDF Incident ───────────────────────────────
         with c7:
             try:
                 pdf_bytes = get_minio_client().get_object(
                     "incident-reports", row['filename']
                 ).read()
                 st.download_button(
-                    label="📥 PDF",
-                    data=pdf_bytes,
-                    file_name=row['filename'],
-                    mime="application/pdf",
-                    key=f"dl_{row['filename']}"
+                    label     = "📥 PDF",
+                    data      = pdf_bytes,
+                    file_name = row['filename'],
+                    mime      = "application/pdf",
+                    key       = f"inc_{row['filename']}",
                 )
             except:
-                st.error("❌")
+                st.markdown("❌", unsafe_allow_html=True)
+
+        # ── Bouton PDF Self-Healing ───────────────────────────
+        with c8:
+            if has_remediation:
+                try:
+                    rem_bytes = get_minio_client().get_object(
+                        "self-healing-reports",
+                        remediation_info['filename']
+                    ).read()
+                    st.download_button(
+                        label     = "🔧 Remédiation",
+                        data      = rem_bytes,
+                        file_name = remediation_info['filename'],
+                        mime      = "application/pdf",
+                        key       = f"rem_{remediation_info['filename']}",
+                        type      = "primary",
+                    )
+                except:
+                    st.markdown("❌", unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="padding:8px;text-align:center;
+                            font-size:11px;color:#a0aec0;">
+                    ➖ Aucune
+                </div>""", unsafe_allow_html=True)
 
     # ── Pagination ────────────────────────────────────────────
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
@@ -306,7 +387,6 @@ if not fdf.empty:
         if st.button("← Précédent", disabled=page <= 1):
             st.session_state.page -= 1
             st.rerun()
-
     with p2:
         st.markdown(
             f"""<div style="text-align:center;padding:8px;color:#718096;font-size:13px;">
@@ -316,7 +396,6 @@ if not fdf.empty:
             </div>""",
             unsafe_allow_html=True
         )
-
     with p3:
         if st.button("Suivant →", disabled=page >= total_pages):
             st.session_state.page += 1

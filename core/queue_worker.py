@@ -25,6 +25,9 @@ def process_alert(parsed, metrics, logs, events):
         analysis = call_gpt4_with_retry(parsed, metrics, logs, events)
         print_analysis(analysis, parsed)
 
+        # ── Incident ID ───────────────────────────────────────
+        incident_id = str(uuid.uuid4())[:8]  # ← DÉPLACÉ ICI EN PREMIER
+
         # ── Limiter les logs pour le PDF ──────────────────────
         try:
             if logs is None:
@@ -41,23 +44,21 @@ def process_alert(parsed, metrics, logs, events):
         except:
             logs_limited = []
 
-        # ── PDF ───────────────────────────────────────────────
+        # ── PDF avec incident_id dans le nom ──────────────────
         print("\n[PDF] Génération du rapport PDF...")
         pdf_bytes, filename = generate_pdf_report(
-            parsed, metrics, logs_limited, analysis, events
+            parsed, metrics, logs_limited, analysis, events,
+            incident_id=incident_id  # ← incident_id déjà défini ✅
         )
 
         if pdf_bytes:
             print(f"[PDF] ✅ PDF généré : {filename} ({len(pdf_bytes)} bytes)")
         else:
-            filename  = f"incident_{parsed['name']}.pdf"
+            filename  = f"incident_{incident_id}_{parsed['name']}.pdf"
             pdf_bytes = b""
 
         # ── MinIO ─────────────────────────────────────────────
         minio_url = upload_to_minio(pdf_bytes, filename)
-
-        # ── Incident ID pour remédiation ──────────────────────
-        incident_id = str(uuid.uuid4())[:8]
 
         # ── Stocker dans pending_remediations ─────────────────
         pending_remediations[incident_id] = {

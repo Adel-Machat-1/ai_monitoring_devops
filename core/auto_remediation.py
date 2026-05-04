@@ -1,69 +1,104 @@
 import subprocess
 import time
 
+# ── Commandes autorisées ──────────────────────────────────────
 SAFE_COMMANDS = [
     "kubectl get",
     "kubectl describe",
     "kubectl logs",
     "kubectl rollout restart",
+    "kubectl rollout status",
     "kubectl scale",
     "kubectl delete pod",
     "kubectl top",
+    "kubectl edit",
 ]
 
+# ── Commandes interdites ──────────────────────────────────────
 DANGEROUS_COMMANDS = [
     "kubectl delete namespace",
     "kubectl delete deployment",
     "kubectl delete statefulset",
     "kubectl delete service",
+    "kubectl delete configmap",
+    "kubectl delete secret",
     "kubectl apply",
     "rm ",
     "dd ",
 ]
 
 def clean_command(cmd):
-    """Supprime les options bloquantes"""
+    """Nettoie et adapte les commandes bloquantes"""
+
+    # ── 1. Supprimer --watch / -w ─────────────────────────────
     cmd = cmd.replace("--watch", "").strip()
-    cmd = cmd.replace(" -w ", " ").strip()
+    cmd = cmd.replace(" -w ",    " ").strip()
+
+    # ── 2. Supprimer --follow / -f (logs stream infini) ───────
+    cmd = cmd.replace("--follow", "").strip()
+    cmd = cmd.replace(" -f ",     " ").strip()
+
+    # ── 3. exec -it → supprimer interactif ───────────────────
     cmd = cmd.replace("exec -it", "exec").strip()
     cmd = cmd.replace("exec -i ", "exec ").strip()
-    # Fix statefulset vs deployment
-    cmd = cmd.replace(
-        "rollout restart deployment keycloak",
-        "rollout restart statefulset/keycloak"
-    )
-    cmd = cmd.replace(
-        "rollout restart deployment postgresql",
-        "rollout restart statefulset/postgresql-primary"
-    )
-    cmd = cmd.replace(
-        "rollout restart deployment mongodb",
-        "rollout restart statefulset/mongodb"
-    )
-    cmd = cmd.replace(
-        "rollout restart deployment redis",
-        "rollout restart statefulset/redis-master"
-    )
-    cmd = cmd.replace(
-        "rollout restart deployment redpanda",
-        "rollout restart statefulset/redpanda"
-    )
-    return cmd
+
+    # ── 4. delete pod → forcer suppression rapide ────────────
+    if "kubectl delete pod" in cmd:
+        if "--grace-period" not in cmd:
+            cmd = cmd.replace(
+                "kubectl delete pod",
+                "kubectl delete pod --grace-period=0 --force"
+            )
+
+    # ── 5. Fix deployment → statefulset ──────────────────────
+    replacements = {
+        "rollout restart deployment keycloak"   : "rollout restart statefulset/keycloak",
+        "rollout restart deployment keycloak-0" : "rollout restart statefulset/keycloak",
+        "rollout restart deployment keycloak-1" : "rollout restart statefulset/keycloak",
+        "rollout restart deployment postgresql" : "rollout restart statefulset/postgresql-primary",
+        "rollout restart deployment mongodb"    : "rollout restart statefulset/mongodb",
+        "rollout restart deployment redis"      : "rollout restart statefulset/redis-master",
+        "rollout restart deployment redpanda"   : "rollout restart statefulset/redpanda",
+
+        "rollout status deployment/postgresql"  : "rollout status statefulset/postgresql-primary",
+        "rollout status deployment/keycloak"    : "rollout status statefulset/keycloak",
+        "rollout status deployment/mongodb"     : "rollout status statefulset/mongodb",
+        "rollout status deployment/redis"       : "rollout status statefulset/redis-master",
+        "rollout status deployment/redpanda"    : "rollout status statefulset/redpanda",
+        "rollout status deployment postgresql"  : "rollout status statefulset/postgresql-primary",
+        "rollout status deployment keycloak"    : "rollout status statefulset/keycloak",
+        "rollout status deployment mongodb"     : "rollout status statefulset/mongodb",
+        "rollout status deployment redis"       : "rollout status statefulset/redis-master",
+        "rollout status deployment redpanda"    : "rollout status statefulset/redpanda",
+    }
+    for old, new in replacements.items():
+        cmd = cmd.replace(old, new)
+
+    return cmd.strip()
+
 
 def is_safe_command(cmd):
+    """Vérifie si la commande est safe à exécuter"""
     cmd_lower = cmd.lower().strip()
+
+    # Vérifier commandes dangereuses
     for dangerous in DANGEROUS_COMMANDS:
         if dangerous in cmd_lower:
             print(f"[REMEDIATION] ❌ Commande dangereuse bloquée : {cmd}")
             return False
+
+    # Vérifier commandes autorisées
     for safe in SAFE_COMMANDS:
         if cmd_lower.startswith(safe.lower()):
             return True
+
     print(f"[REMEDIATION] ⚠️ Commande non autorisée : {cmd}")
     return False
 
+
 def execute_command(cmd):
-    """Execute une commande kubectl"""
+    """Execute une commande kubectl et retourne le résultat"""
+
     # Nettoyer les options bloquantes
     cmd_clean = clean_command(cmd)
     if cmd_clean != cmd:
@@ -86,7 +121,9 @@ def execute_command(cmd):
     except Exception as e:
         return False, str(e)
 
+
 def execute_remediation(analysis):
+    """Execute toutes les actions correctives"""
     actions = analysis.get('actions_correctives', [])
     results = []
     total   = len(actions)
@@ -128,6 +165,7 @@ def execute_remediation(analysis):
             "skipped": False
         })
 
+        # Pause entre commandes
         time.sleep(2)
 
     success_count = sum(1 for r in results if r['success'])
@@ -136,9 +174,12 @@ def execute_remediation(analysis):
 
     return results
 
+
 def format_remediation_results(results):
+    """Formate les résultats pour le PDF et l'email"""
     if not results:
         return "Aucune remédiation effectuée."
+
     lines = []
     for i, r in enumerate(results, 1):
         status = "✅" if r['success'] else "❌" if not r.get('skipped') else "⚠️"

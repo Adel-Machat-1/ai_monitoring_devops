@@ -9,14 +9,261 @@ from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER
 from core.kubernetes_events import format_events_text
 
+def generate_remediation_pdf(parsed, results,incident_id="unknown"):
+    """Génère un PDF avec les résultats de la remédiation"""
+    from datetime import datetime
+    import io
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.colors import HexColor
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.units import cm
+    from reportlab.lib.enums import TA_CENTER
 
-def generate_pdf_report(parsed, metrics, logs, analysis, events=[]):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    filename = f"remediation_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{incident_id}_{parsed['name']}.pdf"
+
+
+    BLUE       = HexColor("#1F4E79")
+    LIGHT_BLUE = HexColor("#2E75B6")
+    GREEN      = HexColor("#1E6B3C")
+    RED        = HexColor("#C00000")
+    ORANGE     = HexColor("#C55A11")
+    LIGHT_GRAY = HexColor("#F2F2F2")
+    WHITE      = HexColor("#FFFFFF")
+
+    buffer = io.BytesIO()
+    doc    = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=2*cm, leftMargin=2*cm,
+        topMargin=2*cm,   bottomMargin=2*cm
+    )
+
+    styles  = getSampleStyleSheet()
+    content = []
+
+    title_style = ParagraphStyle(
+        "Title", parent=styles["Normal"],
+        fontSize=18, textColor=WHITE,
+        alignment=TA_CENTER, fontName="Helvetica-Bold",
+        spaceAfter=4, leading=22,
+    )
+    section_style = ParagraphStyle(
+        "Section", parent=styles["Normal"],
+        fontSize=12, textColor=WHITE,
+        fontName="Helvetica-Bold", spaceAfter=4,
+    )
+    body_style = ParagraphStyle(
+        "Body", parent=styles["Normal"],
+        fontSize=10, textColor=HexColor("#000000"),
+        fontName="Helvetica", spaceAfter=4,
+        leading=14, wordWrap='CJK',
+    )
+    code_style = ParagraphStyle(
+        "Code", parent=styles["Normal"],
+        fontSize=9, fontName="Courier",
+        textColor=HexColor("#1A3A5C"),
+        leading=14, wordWrap='CJK',
+    )
+
+    # ── HEADER ────────────────────────────────────────────────
+    header = Table(
+        [[Paragraph("Agent IA — Rapport de Remédiation Kubernetes", title_style)]],
+        colWidths=[17*cm]
+    )
+    header.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), BLUE),
+        ("ALIGN",         (0,0), (-1,-1), "CENTER"),
+        ("TOPPADDING",    (0,0), (-1,-1), 20),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 20),
+    ]))
+    content.append(header)
+
+    subheader = Table(
+        [[Paragraph(f"Généré le {timestamp}  |  Auto-Remédiation Niveau 1", ParagraphStyle(
+            "Sub", parent=styles["Normal"],
+            fontSize=10, textColor=WHITE, alignment=TA_CENTER
+        ))]],
+        colWidths=[17*cm]
+    )
+    subheader.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), LIGHT_BLUE),
+        ("TOPPADDING",    (0,0), (-1,-1), 7),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+    ]))
+    content.append(subheader)
+    content.append(Spacer(1, 0.4*cm))
+
+    # ── BADGE ─────────────────────────────────────────────────
+    success_count = sum(1 for r in results if r['success'])
+    total         = len(results)
+    pct           = (success_count / total * 100) if total > 0 else 0
+    badge_color   = GREEN if pct >= 75 else ORANGE if pct >= 50 else RED
+
+    badge = Table([[Paragraph(
+        f"✅ Remédiation — {success_count}/{total} commandes réussies ({pct:.0f}%)",
+        ParagraphStyle("Badge", parent=styles["Normal"],
+            fontSize=13, textColor=WHITE,
+            fontName="Helvetica-Bold", alignment=TA_CENTER)
+    )]], colWidths=[17*cm])
+    badge.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), badge_color),
+        ("TOPPADDING",    (0,0), (-1,-1), 12),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 12),
+    ]))
+    content.append(badge)
+    content.append(Spacer(1, 0.5*cm))
+
+    # ── SECTION 1 : INFOS INCIDENT ────────────────────────────
+    sec1 = Table(
+        [[Paragraph("1. Informations de l'Incident", section_style)]],
+        colWidths=[17*cm]
+    )
+    sec1.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), LIGHT_BLUE),
+        ("TOPPADDING",    (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+        ("LEFTPADDING",   (0,0), (-1,-1), 10),
+    ]))
+    content.append(sec1)
+    content.append(Spacer(1, 0.2*cm))
+
+    label_style = ParagraphStyle(
+        "Label", parent=styles["Normal"],
+        fontSize=10, textColor=HexColor("#595959"),
+        fontName="Helvetica-Bold",
+    )
+
+    sev       = parsed['severity'].upper()
+    SEV_COLOR = RED if sev == "CRITICAL" else ORANGE
+
+    info_rows = [
+        [Paragraph("Alerte",    label_style), Paragraph(parsed['name'],      body_style)],
+        [Paragraph("Service",   label_style), Paragraph(parsed['service'],   body_style)],
+        [Paragraph("Namespace", label_style), Paragraph(parsed['namespace'], body_style)],
+        [Paragraph("Sévérité",  label_style), Paragraph(sev, ParagraphStyle(
+            "Sev", parent=styles["Normal"],
+            fontSize=10, textColor=SEV_COLOR, fontName="Helvetica-Bold"))],
+        [Paragraph("Timestamp", label_style), Paragraph(timestamp, body_style)],
+    ]
+    t_info = Table(info_rows, colWidths=[4*cm, 13*cm])
+    t_info.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (0,-1), LIGHT_GRAY),
+        ("GRID",          (0,0), (-1,-1), 0.5, HexColor("#CCCCCC")),
+        ("TOPPADDING",    (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ("LEFTPADDING",   (0,0), (-1,-1), 8),
+        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+    ]))
+    content.append(t_info)
+    content.append(Spacer(1, 0.5*cm))
+
+    # ── SECTION 2 : RÉSULTATS COMMANDES ──────────────────────
+    sec2 = Table(
+        [[Paragraph("2. Résultats des Commandes kubectl", section_style)]],
+        colWidths=[17*cm]
+    )
+    sec2.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), HexColor("#1E6B3C")),
+        ("TOPPADDING",    (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+        ("LEFTPADDING",   (0,0), (-1,-1), 10),
+    ]))
+    content.append(sec2)
+    content.append(Spacer(1, 0.2*cm))
+
+    for i, r in enumerate(results, 1):
+        # ── Status badge ──────────────────────────────────────
+        if r.get('skipped'):
+            status_text  = "⚠️ IGNORÉ"
+            status_color = ORANGE
+            row_bg       = HexColor("#FFF8E1")
+        elif r['success']:
+            status_text  = "✅ SUCCÈS"
+            status_color = GREEN
+            row_bg       = HexColor("#E8F5E9")
+        else:
+            status_text  = "❌ ÉCHEC"
+            status_color = RED
+            row_bg       = HexColor("#FFEBEE")
+
+        # ── Commande ──────────────────────────────────────────
+        safe_cmd = r['command'].replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+        t_cmd = Table([[
+            Paragraph(f"{i}.", ParagraphStyle("N", parent=styles["Normal"],
+                fontSize=11, fontName="Helvetica-Bold",
+                textColor=status_color, alignment=TA_CENTER)),
+            Paragraph(f"$ {safe_cmd}", code_style),
+            Paragraph(status_text, ParagraphStyle("S", parent=styles["Normal"],
+                fontSize=10, fontName="Helvetica-Bold",
+                textColor=status_color, alignment=TA_CENTER)),
+        ]], colWidths=[0.8*cm, 13*cm, 3.2*cm])
+        t_cmd.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,-1), row_bg),
+            ("GRID",          (0,0), (-1,-1), 0.5, HexColor("#CCCCCC")),
+            ("TOPPADDING",    (0,0), (-1,-1), 8),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+            ("LEFTPADDING",   (0,0), (-1,-1), 8),
+            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ]))
+        content.append(t_cmd)
+
+        # ── Output ────────────────────────────────────────────
+        if r['output'] and not r.get('skipped'):
+            safe_out = r['output'][:300].replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+            t_out = Table([[
+                Paragraph(safe_out.replace("\n","<br/>"), ParagraphStyle(
+                    "Out", parent=styles["Normal"],
+                    fontSize=8, fontName="Courier",
+                    textColor=HexColor("#D4D4D4"),
+                    leading=10, leftIndent=8,
+                ))
+            ]], colWidths=[17*cm])
+            t_out.setStyle(TableStyle([
+                ("BACKGROUND",    (0,0), (-1,-1), HexColor("#1E1E1E")),
+                ("TOPPADDING",    (0,0), (-1,-1), 8),
+                ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+                ("LEFTPADDING",   (0,0), (-1,-1), 10),
+            ]))
+            content.append(t_out)
+
+        content.append(Spacer(1, 0.2*cm))
+
+    # ── FOOTER ────────────────────────────────────────────────
+    content.append(Spacer(1, 0.5*cm))
+    footer = Table([[Paragraph(
+        f"Agent IA Kubernetes  |  Auto-Remédiation Niveau 1  |  {timestamp}",
+        ParagraphStyle("F", parent=styles["Normal"],
+            fontSize=8, textColor=WHITE,
+            alignment=TA_CENTER, fontName="Helvetica")
+    )]], colWidths=[17*cm])
+    footer.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), BLUE),
+        ("TOPPADDING",    (0,0), (-1,-1), 10),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 10),
+    ]))
+    content.append(footer)
+
+    doc.build(content)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    print(f"[REMEDIATION PDF] ✅ PDF généré : {filename}")
+    return pdf_bytes, filename
+
+
+
+
+
+
+
+def generate_pdf_report(parsed, metrics, logs, analysis, events=[], incident_id="unknown"):
     print("\n[PDF] Génération du rapport PDF...")
 
     metrics_summary = extract_metrics_summary(metrics)
     logs_text       = extract_logs_text(logs, max_lines=20)
     timestamp       = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    filename        = f"incident_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{parsed['name']}.pdf"
+    filename =     f"incident_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{incident_id}_{parsed['name']}.pdf"
 
     # ── Couleurs ──────────────────────────────────────────────
     BLUE       = HexColor("#1F4E79")
