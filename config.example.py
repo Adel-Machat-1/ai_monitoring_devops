@@ -112,3 +112,9 @@ APP_POD_PREFIX = {
 
 # ── GPT-4 Models ──────────────────────────────
 MODELS = ["gpt-4o-mini", "gpt-4o"]
+
+# ── KSM Backend ───────────────────────────────
+KSM_ENABLED  = True
+KSM_BASE_URL = "https://ksm-dev.qualif.omniflowcx.com"
+KSM_EMAIL    = "monitoring_service@keyrus.com"
+KSM_PASSWORD = "VOTRE_MOT_DE_PASSE_ICI"

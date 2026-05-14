@@ -2,6 +2,10 @@ import subprocess
 import json
 from datetime import datetime
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 def get_kubernetes_events(pod=None, namespace="apps", max_events=20):
     """
     Récupère les events Kubernetes pour un pod ou namespace
@@ -63,19 +67,18 @@ def get_kubernetes_events(pod=None, namespace="apps", max_events=20):
                     })
 
         if events:
-            print(f"[EVENTS] ✅ {len(events)} event(s) trouvé(s) pour {pod or namespace}")
+            logger.info(f"[EVENTS] ✅ {len(events)} event(s) trouvé(s) pour {pod or namespace}")
         else:
-            print(f"[EVENTS] ℹ️ Aucun event pour {pod or namespace}")
+            logger.info(f"[EVENTS] ℹ️ Aucun event pour {pod or namespace}")
 
         return events
 
     except subprocess.TimeoutExpired:
-        print(f"[EVENTS] ⚠️ Timeout kubectl")
+        logger.info(f"[EVENTS] ⚠️ Timeout kubectl")
         return []
     except Exception as e:
-        print(f"[EVENTS] ❌ Erreur : {str(e)}")
+        logger.info(f"[EVENTS] ❌ Erreur : {str(e)}")
         return []
-
 
 def format_events_text(events, max_events=20):
     """

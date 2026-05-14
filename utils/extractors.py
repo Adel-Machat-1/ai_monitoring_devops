@@ -1,4 +1,10 @@
+
+
+import logging
+logger = logging.getLogger(__name__)
+
 def extract_logs_text(logs, max_lines=20):
+
     try:
         # ── Cas 1 : Structure Loki complète ───────────────────
         if isinstance(logs, dict):

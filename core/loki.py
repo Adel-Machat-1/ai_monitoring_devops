@@ -2,6 +2,10 @@ import requests
 import time
 from config import LOKI_URL
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 APP_MAPPING = {
     "keycloak": "keycloak", "mongodb": "mongodb", "mongo": "mongodb",
     "postgresql": "postgresql", "postgres": "postgresql",
@@ -26,11 +30,11 @@ def get_loki_logs(service, namespace="apps", minutes=10):
             streams = result.get("data", {}).get("result", [])
             if streams:
                 total = sum(len(s.get("values", [])) for s in streams)
-                print(f"[LOKI] ✅ {len(streams)} stream(s) | {total} lignes")
+                logger.info(f"[LOKI] ✅ {len(streams)} stream(s) | {total} lignes")
                 return result
 
-        print(f"[LOKI] ❌ Aucun log pour service={service}")
+        logger.info(f"[LOKI] ❌ Aucun log pour service={service}")
         return {"data": {"result": []}}
     except Exception as e:
-        print(f"[LOKI] ERROR: {str(e)}")
+        logger.info(f"[LOKI] ERROR: {str(e)}")
         return {"error": str(e)}

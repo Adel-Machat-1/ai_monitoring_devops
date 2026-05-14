@@ -5,12 +5,15 @@ from config import GITHUB_TOKEN, MODELS
 from utils.extractors import extract_metrics_summary, extract_logs_text
 from core.kubernetes_events import format_events_text
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 gpt_client = OpenAI(
     base_url="https://models.inference.ai.azure.com",
     api_key=GITHUB_TOKEN,
 )
 current_model_index = 0
-
 
 def build_prompt(parsed, metrics_summary, logs_text, events_text):
     pod_name  = parsed['affected_pods'][0] if parsed['affected_pods'] else f"{parsed['service']}-0"
@@ -87,7 +90,6 @@ Réponds UNIQUEMENT en JSON valide sans markdown :
 }}
 """
 
-
 def call_gpt4_with_retry(parsed, metrics, logs, events=[], max_retries=3):
     global current_model_index
 
@@ -100,7 +102,7 @@ def call_gpt4_with_retry(parsed, metrics, logs, events=[], max_retries=3):
     for attempt in range(1, max_retries + 1):
         model = MODELS[current_model_index]
         try:
-            print(f"[GPT-4] Tentative {attempt}/{max_retries} — {model}")
+            logger.info(f"[GPT-4] Tentative {attempt}/{max_retries} — {model}")
             response = gpt_client.chat.completions.create(
                 model=model,
                 messages=[
@@ -131,11 +133,11 @@ Tu réponds toujours en JSON valide sans markdown."""
                     clean = clean[4:]
             clean = clean.strip()
 
-            print(f"[GPT-4] ✅ Réponse reçue ({len(raw)} chars) via {model}")
+            logger.info(f"[GPT-4] ✅ Réponse reçue ({len(raw)} chars) via {model}")
             return json.loads(clean)
 
         except json.JSONDecodeError:
-            print(f"[GPT-4] ⚠️ JSON invalide — retour réponse brute")
+            logger.info(f"[GPT-4] ⚠️ JSON invalide — retour réponse brute")
             return {"raw_response": raw}
 
         except Exception as e:
@@ -144,53 +146,52 @@ Tu réponds toujours en JSON valide sans markdown."""
                 next_idx = current_model_index + 1
                 if next_idx < len(MODELS):
                     current_model_index = next_idx
-                    print(f"[GPT-4] Switch → {MODELS[current_model_index]}")
+                    logger.info(f"[GPT-4] Switch → {MODELS[current_model_index]}")
                 else:
                     wait = attempt * 15
-                    print(f"[GPT-4] ⚠️ Attente {wait}s...")
+                    logger.info(f"[GPT-4] ⚠️ Attente {wait}s...")
                     time.sleep(wait)
             else:
-                print(f"[GPT-4] ❌ {err}")
+                logger.info(f"[GPT-4] ❌ {err}")
                 return {"error": err}
 
     return {"error": "Max retries atteint"}
 
-
 def print_analysis(analysis, parsed):
-    print("\n" + "🤖"*30)
-    print("      ANALYSE GPT-4 — ROOT CAUSE ANALYSIS")
-    print("🤖"*30)
+    logger.info("\n" + "🤖"*30)
+    logger.info("      ANALYSE GPT-4 — ROOT CAUSE ANALYSIS")
+    logger.info("🤖"*30)
 
     if "error" in analysis:
-        print(f"❌ {analysis['error']}")
+        logger.info(f"❌ {analysis['error']}")
         return
 
     if "raw_response" in analysis:
-        print(f"📝 Réponse brute:\n{analysis['raw_response']}")
+        logger.info(f"📝 Réponse brute:\n{analysis['raw_response']}")
         return
 
-    print(f"\n📛 {parsed['name']} ({parsed['severity'].upper()})")
-    print(f"🔍 {analysis.get('anomalie', 'N/A')}")
-    print(f"🎯 {analysis.get('cause_probable', 'N/A')}")
-    print(f"⚡ {analysis.get('severite_reelle', 'N/A').upper()}")
+    logger.info(f"\n📛 {parsed['name']} ({parsed['severity'].upper()})")
+    logger.info(f"🔍 {analysis.get('anomalie', 'N/A')}")
+    logger.info(f"🎯 {analysis.get('cause_probable', 'N/A')}")
+    logger.info(f"⚡ {analysis.get('severite_reelle', 'N/A').upper()}")
 
     if analysis.get('services_impactes'):
-        print(f"\n💥 SERVICES IMPACTÉS :")
+        logger.info(f"\n💥 SERVICES IMPACTÉS :")
         for s in analysis['services_impactes']:
-            print(f"   • {s}")
+            logger.info(f"   • {s}")
 
     if analysis.get('actions_correctives'):
-        print(f"\n🔧 ACTIONS CORRECTIVES :")
+        logger.info(f"\n🔧 ACTIONS CORRECTIVES :")
         for i, a in enumerate(analysis['actions_correctives'], 1):
-            print(f"   {i}. {a}")
+            logger.info(f"   {i}. {a}")
 
     if analysis.get('commandes_diagnostic'):
-        print(f"\n🖥️  COMMANDES DIAGNOSTIC :")
+        logger.info(f"\n🖥️  COMMANDES DIAGNOSTIC :")
         for cmd in analysis['commandes_diagnostic']:
-            print(f"   $ {cmd}")
+            logger.info(f"   $ {cmd}")
 
     if analysis.get('prevention'):
-        print(f"\n🛡️  PRÉVENTION :")
-        print(f"   {analysis['prevention']}")
+        logger.info(f"\n🛡️  PRÉVENTION :")
+        logger.info(f"   {analysis['prevention']}")
 
-    print("🤖"*30)
+    logger.info("🤖"*30)

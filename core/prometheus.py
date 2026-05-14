@@ -2,6 +2,10 @@ import requests
 import time
 from config import PROMETHEUS_URL, APP_POD_PREFIX
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 def find_pod_from_prometheus(job):
     try:
         prefix = APP_POD_PREFIX.get(job, "")
@@ -12,11 +16,11 @@ def find_pod_from_prometheus(job):
         pods = result.get("data", {}).get("result", [])
         if pods:
             pod_name = pods[0].get("metric", {}).get("pod")
-            print(f"[PROMETHEUS] Pod trouvé : {pod_name}")
+            logger.info(f"[PROMETHEUS] Pod trouvé : {pod_name}")
             return pod_name
         return None
     except Exception as e:
-        print(f"[PROMETHEUS] Erreur find_pod: {str(e)}")
+        logger.info(f"[PROMETHEUS] Erreur find_pod: {str(e)}")
         return None
 
 def get_prometheus_metrics(job, pod=None, minutes=10):
@@ -35,7 +39,7 @@ def get_prometheus_metrics(job, pod=None, minutes=10):
         if not pod:
             pod = find_pod_from_prometheus(job)
             if pod:
-                print(f"[PROMETHEUS] Pod auto-détecté : {pod}")
+                logger.info(f"[PROMETHEUS] Pod auto-détecté : {pod}")
 
         if pod:
             results["restarts"] = requests.get(f"{PROMETHEUS_URL}/api/v1/query",

@@ -2,6 +2,10 @@ import requests
 import time
 from config import PROMETHEUS_URL
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 APPS_METRICS = {
     "keycloak": {
         "metrics": {
@@ -61,7 +65,7 @@ def query_prometheus(promql):
         return float(value)
 
     except Exception as e:
-        print(f"[COLLECTOR] Erreur query: {str(e)}")
+        logger.info(f"[COLLECTOR] Erreur query: {str(e)}")
         return 0.0
 
 def collect_all_metrics():
@@ -69,14 +73,14 @@ def collect_all_metrics():
     timestamp = time.time()
     all_data  = {"timestamp": timestamp}
 
-    print(f"\n[COLLECTOR] Collecte — {__import__('datetime').datetime.now().strftime('%H:%M:%S')}")
+    logger.info(f"\n[COLLECTOR] Collecte — {__import__('datetime').datetime.now().strftime('%H:%M:%S')}")
 
     for app_name, app_config in APPS_METRICS.items():
         app_data = {}
         for metric_name, promql in app_config["metrics"].items():
             value = query_prometheus(promql)
             app_data[metric_name] = value
-            print(f"  [{app_name}] {metric_name}: {value:.4f}")
+            logger.info(f"  [{app_name}] {metric_name}: {value:.4f}")
 
         all_data[app_name] = app_data
 

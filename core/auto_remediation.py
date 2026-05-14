@@ -1,6 +1,10 @@
 import subprocess
 import time
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 # ── Commandes autorisées ──────────────────────────────────────
 SAFE_COMMANDS = [
     "kubectl get",
@@ -76,7 +80,6 @@ def clean_command(cmd):
 
     return cmd.strip()
 
-
 def is_safe_command(cmd):
     """Vérifie si la commande est safe à exécuter"""
     cmd_lower = cmd.lower().strip()
@@ -84,7 +87,7 @@ def is_safe_command(cmd):
     # Vérifier commandes dangereuses
     for dangerous in DANGEROUS_COMMANDS:
         if dangerous in cmd_lower:
-            print(f"[REMEDIATION] ❌ Commande dangereuse bloquée : {cmd}")
+            logger.info(f"[REMEDIATION] ❌ Commande dangereuse bloquée : {cmd}")
             return False
 
     # Vérifier commandes autorisées
@@ -92,9 +95,8 @@ def is_safe_command(cmd):
         if cmd_lower.startswith(safe.lower()):
             return True
 
-    print(f"[REMEDIATION] ⚠️ Commande non autorisée : {cmd}")
+    logger.info(f"[REMEDIATION] ⚠️ Commande non autorisée : {cmd}")
     return False
-
 
 def execute_command(cmd):
     """Execute une commande kubectl et retourne le résultat"""
@@ -102,7 +104,7 @@ def execute_command(cmd):
     # Nettoyer les options bloquantes
     cmd_clean = clean_command(cmd)
     if cmd_clean != cmd:
-        print(f"[REMEDIATION] 🔧 Commande adaptée : {cmd_clean}")
+        logger.info(f"[REMEDIATION] 🔧 Commande adaptée : {cmd_clean}")
 
     try:
         result = subprocess.run(
@@ -121,7 +123,6 @@ def execute_command(cmd):
     except Exception as e:
         return False, str(e)
 
-
 def execute_remediation(analysis):
     """Execute toutes les actions correctives"""
     actions = analysis.get('actions_correctives', [])
@@ -129,15 +130,15 @@ def execute_remediation(analysis):
     total   = len(actions)
 
     if not actions:
-        print("[REMEDIATION] ⚠️ Aucune action corrective à executer")
+        logger.info("[REMEDIATION] ⚠️ Aucune action corrective à executer")
         return results
 
-    print(f"\n[REMEDIATION] 🔧 Début remédiation — {total} commande(s)")
-    print("="*60)
+    logger.info(f"\n[REMEDIATION] 🔧 Début remédiation — {total} commande(s)")
+    logger.info("="*60)
 
     for i, cmd in enumerate(actions, 1):
-        print(f"\n[REMEDIATION] ▶️ Commande {i}/{total}")
-        print(f"[REMEDIATION] $ {cmd}")
+        logger.info(f"\n[REMEDIATION] ▶️ Commande {i}/{total}")
+        logger.info(f"[REMEDIATION] $ {cmd}")
 
         if not is_safe_command(cmd):
             results.append({
@@ -151,12 +152,12 @@ def execute_remediation(analysis):
         success, output = execute_command(cmd)
 
         if success:
-            print(f"[REMEDIATION] ✅ Succès")
+            logger.info(f"[REMEDIATION] ✅ Succès")
         else:
-            print(f"[REMEDIATION] ❌ Échec")
+            logger.info(f"[REMEDIATION] ❌ Échec")
 
         if output:
-            print(f"[REMEDIATION] Output : {output[:200]}")
+            logger.info(f"[REMEDIATION] Output : {output[:200]}")
 
         results.append({
             "command": cmd,
@@ -169,11 +170,10 @@ def execute_remediation(analysis):
         time.sleep(2)
 
     success_count = sum(1 for r in results if r['success'])
-    print(f"\n[REMEDIATION] 📊 Résultat : {success_count}/{total} commandes réussies")
-    print("="*60)
+    logger.info(f"\n[REMEDIATION] 📊 Résultat : {success_count}/{total} commandes réussies")
+    logger.info("="*60)
 
     return results
-
 
 def format_remediation_results(results):
     """Formate les résultats pour le PDF et l'email"""

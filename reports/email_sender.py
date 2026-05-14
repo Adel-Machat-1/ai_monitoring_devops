@@ -6,14 +6,21 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 from datetime import datetime
+import logging
+logger = logging.getLogger(__name__)
+
 from config import (
+
+
+
+
     GMAIL_HOST, GMAIL_PORT,
     GMAIL_USERNAME, GMAIL_PASSWORD,
     EMAIL_FROM, EMAIL_TO
 )
 
 def send_email_report(parsed, analysis, pdf_bytes, filename, minio_url, incident_id=None):
-    print(f"\n[EMAIL] Envoi du rapport pour {parsed['name']}...")
+    logger.info(f"\n[EMAIL] Envoi du rapport pour {parsed['name']}...")
 
     sev     = parsed['severity'].upper()
     emoji   = "🔴" if sev == "CRITICAL" else "🟠" if sev == "WARNING" else "🟡"
@@ -264,10 +271,10 @@ def send_email_report(parsed, analysis, pdf_bytes, filename, minio_url, incident
             server.login(GMAIL_USERNAME, GMAIL_PASSWORD)
             server.sendmail(EMAIL_FROM, EMAIL_TO, final_msg.as_string())
 
-        print(f"[EMAIL] ✅ Email envoyé à {EMAIL_TO}")
+        logger.info(f"[EMAIL] ✅ Email envoyé à {EMAIL_TO}")
         time.sleep(2)
         return True
 
     except Exception as e:
-        print(f"[EMAIL] ❌ Erreur : {str(e)}")
+        logger.info(f"[EMAIL] ❌ Erreur : {str(e)}")
         return False

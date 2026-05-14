@@ -5,6 +5,10 @@ from core.anomaly.collector import collect_all_metrics
 from core.anomaly.detector import process_collected_metrics
 from core.kubernetes_events import get_kubernetes_events   # ← AJOUT
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 INTERVAL = 300  
 
 anomaly_dedup    = {}
@@ -40,21 +44,21 @@ def create_anomaly_alert(app_name, anomaly_info):
     }
 
 def run_anomaly_detection(alert_queue):
-    print(f"[SCHEDULER] Démarrage — intervalle: {INTERVAL//60} minutes")
-    print(f"[SCHEDULER] Première collecte dans 30 secondes...")
+    logger.info(f"[SCHEDULER] Démarrage — intervalle: {INTERVAL//60} minutes")
+    logger.info(f"[SCHEDULER] Première collecte dans 30 secondes...")
     time.sleep(30)
 
     while True:
         try:
-            print(f"\n{'='*50}")
-            print(f"[SCHEDULER] Cycle — {datetime.now().strftime('%H:%M:%S')}")
-            print(f"{'='*50}")
+            logger.info(f"\n{'='*50}")
+            logger.info(f"[SCHEDULER] Cycle — {datetime.now().strftime('%H:%M:%S')}")
+            logger.info(f"{'='*50}")
 
             all_metrics = collect_all_metrics()
             anomalies   = process_collected_metrics(all_metrics)
 
             if anomalies:
-                print(f"\n[SCHEDULER] ⚠️ {len(anomalies)} anomalie(s) détectée(s) !")
+                logger.info(f"\n[SCHEDULER] ⚠️ {len(anomalies)} anomalie(s) détectée(s) !")
 
                 for anomaly in anomalies:
                     app_name = anomaly['app']
@@ -64,7 +68,7 @@ def run_anomaly_detection(alert_queue):
                     last_sent = anomaly_dedup.get(app_name, 0)
                     if now - last_sent < ANOMALY_DEDUP_WINDOW:
                         remaining = int((ANOMALY_DEDUP_WINDOW - (now - last_sent)) / 60)
-                        print(f"[SCHEDULER] [SKIP] {app_name} déjà alerté — prochain dans {remaining} min")
+                        logger.info(f"[SCHEDULER] [SKIP] {app_name} déjà alerté — prochain dans {remaining} min")
                         continue
 
                     # ── Marquer comme envoyé ──────────────────
@@ -93,15 +97,15 @@ def run_anomaly_detection(alert_queue):
                         namespace="apps"
                     )
 
-                    print(f"[SCHEDULER] → Envoi dans queue GPT-4 : {parsed['name']}")
+                    logger.info(f"[SCHEDULER] → Envoi dans queue GPT-4 : {parsed['name']}")
                     alert_queue.put((parsed, metrics, logs, events))
             else:
-                print(f"\n[SCHEDULER] ✅ Tout est normal")
+                logger.info(f"\n[SCHEDULER] ✅ Tout est normal")
 
         except Exception as e:
-            print(f"[SCHEDULER] ❌ Erreur: {str(e)}")
+            logger.info(f"[SCHEDULER] ❌ Erreur: {str(e)}")
 
-        print(f"\n[SCHEDULER] Prochain cycle dans {INTERVAL//60} minutes...")
+        logger.info(f"\n[SCHEDULER] Prochain cycle dans {INTERVAL//60} minutes...")
         time.sleep(INTERVAL)
 
 def start_anomaly_scheduler(alert_queue):
@@ -111,5 +115,5 @@ def start_anomaly_scheduler(alert_queue):
         daemon=True
     )
     thread.start()
-    print(f"[SCHEDULER] Thread démarré ✅")
+    logger.info(f"[SCHEDULER] Thread démarré ✅")
     return thread

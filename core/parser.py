@@ -1,5 +1,9 @@
 from config import APP_NAMESPACES
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 def parse_alert(alert_data):
     alerts = alert_data.get("alerts", [])
     if not alerts:
@@ -26,7 +30,7 @@ def parse_alert(alert_data):
 
     if namespace == "default" and job in APP_NAMESPACES:
         namespace = APP_NAMESPACES[job]
-        print(f"[PARSE] Namespace corrigé : default → apps pour job={job}")
+        logger.info(f"[PARSE] Namespace corrigé : default → apps pour job={job}")
 
     return {
         "name":           labels.get("alertname", "unknown"),

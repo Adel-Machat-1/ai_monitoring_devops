@@ -1,6 +1,10 @@
 import json
 import os
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 STATE_FILE = "pending_remediations.json"
 
 def _load():
@@ -19,7 +23,7 @@ def _save(data):
         with open(STATE_FILE, "w") as f:
             json.dump(data, f, indent=2)
     except Exception as e:
-        print(f"[STATE] ❌ Erreur sauvegarde : {e}")
+        logger.info(f"[STATE] ❌ Erreur sauvegarde : {e}")
 
 class PersistentDict:
     """Dictionnaire persistant dans un fichier JSON"""

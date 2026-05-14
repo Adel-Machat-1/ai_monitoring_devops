@@ -6,6 +6,10 @@ from sklearn.preprocessing import StandardScaler
 import joblib
 from datetime import datetime
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 # Dossier pour sauvegarder les modèles entraînés
 MODELS_DIR = "models"
 os.makedirs(MODELS_DIR, exist_ok=True)
@@ -42,10 +46,10 @@ def train_model(app_name):
     features = get_features(app_name)
 
     if features is None or len(features) < MIN_TRAINING_POINTS:
-        print(f"[DETECTOR] {app_name} — pas assez de données ({len(features) if features is not None else 0}/{MIN_TRAINING_POINTS})")
+        logger.info(f"[DETECTOR] {app_name} — pas assez de données ({len(features) if features is not None else 0}/{MIN_TRAINING_POINTS})")
         return None
 
-    print(f"[DETECTOR] Entraînement du modèle pour {app_name} ({len(features)} points)...")
+    logger.info(f"[DETECTOR] Entraînement du modèle pour {app_name} ({len(features)} points)...")
 
     # Normalisation
     scaler = StandardScaler()
@@ -63,7 +67,7 @@ def train_model(app_name):
     joblib.dump(model,  f"{MODELS_DIR}/{app_name}_model.pkl")
     joblib.dump(scaler, f"{MODELS_DIR}/{app_name}_scaler.pkl")
 
-    print(f"[DETECTOR] ✅ Modèle {app_name} entraîné et sauvegardé")
+    logger.info(f"[DETECTOR] ✅ Modèle {app_name} entraîné et sauvegardé")
     return model
 
 def load_model(app_name):
@@ -111,7 +115,7 @@ def detect_anomaly(app_name, current_metrics):
 
         # ── Filtre seuil minimum ──────────────────────────────
         if is_anomaly and anomaly_score < MIN_ANOMALY_SCORE:
-            print(f"  [{app_name}] Score {anomaly_score:.2f} < {MIN_ANOMALY_SCORE} → faux positif ignoré")
+            logger.info(f"  [{app_name}] Score {anomaly_score:.2f} < {MIN_ANOMALY_SCORE} → faux positif ignoré")
             is_anomaly = False
 
         if is_anomaly:
@@ -122,7 +126,7 @@ def detect_anomaly(app_name, current_metrics):
         return is_anomaly, anomaly_score, reason
 
     except Exception as e:
-        print(f"[DETECTOR] Erreur détection {app_name}: {str(e)}")
+        logger.info(f"[DETECTOR] Erreur détection {app_name}: {str(e)}")
         return False, 0.0, str(e)
     
 def process_collected_metrics(all_metrics):
@@ -141,7 +145,7 @@ def process_collected_metrics(all_metrics):
         is_anomaly, score, reason = detect_anomaly(app_name, app_metrics)
 
         status = "🔴 ANOMALIE" if is_anomaly else "✅ Normal"
-        print(f"  [{app_name}] {status} — {reason}")
+        logger.info(f"  [{app_name}] {status} — {reason}")
 
         if is_anomaly:
             anomalies.append({
@@ -152,6 +156,3 @@ def process_collected_metrics(all_metrics):
             })
 
     return anomalies
-
-
-

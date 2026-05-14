@@ -3,10 +3,15 @@ import threading
 import time
 import uuid
 from core.gpt4 import call_gpt4_with_retry, print_analysis
+from core.ksm_connector import send_alarm_to_ksm
 from reports.pdf_generator import generate_pdf_report
 from reports.minio_uploader import upload_to_minio
 from reports.email_sender import send_email_report
 from core.state import pending_remediations
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 alert_queue = queue.Queue()
 _processing = set()
@@ -16,7 +21,7 @@ def process_alert(parsed, metrics, logs, events):
 
     alert_key = f"{parsed['name']}_{parsed['service']}"
     if alert_key in _processing:
-        print(f"[QUEUE] ⚠️ Déjà en cours : {alert_key} — ignoré")
+        logger.info(f"[QUEUE] ⚠️ Déjà en cours : {alert_key} — ignoré")
         return None
     _processing.add(alert_key)
 
@@ -45,14 +50,14 @@ def process_alert(parsed, metrics, logs, events):
             logs_limited = []
 
         # ── PDF avec incident_id dans le nom ──────────────────
-        print("\n[PDF] Génération du rapport PDF...")
+        logger.info("\n[PDF] Génération du rapport PDF...")
         pdf_bytes, filename = generate_pdf_report(
             parsed, metrics, logs_limited, analysis, events,
             incident_id=incident_id  # ← incident_id déjà défini ✅
         )
 
         if pdf_bytes:
-            print(f"[PDF] ✅ PDF généré : {filename} ({len(pdf_bytes)} bytes)")
+            logger.info(f"[PDF] ✅ PDF généré : {filename} ({len(pdf_bytes)} bytes)")
         else:
             filename  = f"incident_{incident_id}_{parsed['name']}.pdf"
             pdf_bytes = b""
@@ -60,25 +65,27 @@ def process_alert(parsed, metrics, logs, events):
         # ── MinIO ─────────────────────────────────────────────
         minio_url = upload_to_minio(pdf_bytes, filename)
 
+        # ── KSM — notifier l'agent d'astreinte + lien rapport ─
+        send_alarm_to_ksm(parsed, report_url=minio_url)
+
         # ── Stocker dans pending_remediations ─────────────────
         pending_remediations[incident_id] = {
             "parsed"  : parsed,
             "analysis": analysis,
         }
-        print(f"[REMEDIATION] 🔔 Incident {incident_id} en attente d'approbation")
+        logger.info(f"[REMEDIATION] 🔔 Incident {incident_id} en attente d'approbation")
 
         # ── Email avec boutons approbation ────────────────────
-        send_email_report(parsed, analysis, pdf_bytes, filename, minio_url, incident_id)
+        ##send_email_report(parsed, analysis, pdf_bytes, filename, minio_url, incident_id)
 
         return analysis
 
     finally:
         _processing.discard(alert_key)
 
-
 def queue_worker():
     """Worker qui traite les alertes dans la queue"""
-    print("[QUEUE] Worker démarré")
+    logger.info("[QUEUE] Worker démarré")
 
     while True:
         try:
@@ -87,12 +94,12 @@ def queue_worker():
                 break
 
             parsed, metrics, logs, events = job
-            print(f"\n[QUEUE] Traitement : {parsed['name']} ({parsed['severity']})")
+            logger.info(f"\n[QUEUE] Traitement : {parsed['name']} ({parsed['severity']})")
 
             process_alert(parsed, metrics, logs, events)
 
-            print(f"[QUEUE] ✅ Pipeline complet : {parsed['name']}")
-            print(f"[QUEUE] Attente 30s...")
+            logger.info(f"[QUEUE] ✅ Pipeline complet : {parsed['name']}")
+            logger.info(f"[QUEUE] Attente 30s...")
             time.sleep(30)
 
             alert_queue.task_done()
@@ -100,9 +107,8 @@ def queue_worker():
         except queue.Empty:
             continue
         except Exception as e:
-            print(f"[QUEUE] Erreur: {str(e)}")
+            logger.info(f"[QUEUE] Erreur: {str(e)}")
             alert_queue.task_done()
-
 
 worker_thread = threading.Thread(target=queue_worker, daemon=True)
 worker_thread.start()

@@ -14,11 +14,29 @@ from core.anomaly.scheduler import start_anomaly_scheduler
 from core.state import pending_remediations          # ← AJOUT
 from core.auto_remediation import execute_remediation # ← AJOUT
 from datetime import datetime
-
 from reports.minio_uploader import upload_to_minio
 from reports.pdf_generator import generate_remediation_pdf
-
 from reports.minio_uploader import upload_to_minio, upload_remediation_to_minio
+import logging
+
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Terminal ET fichier en même temps
+console_handler = logging.StreamHandler()
+file_handler    = logging.FileHandler("agent_ia.log", encoding="utf-8")
+
+formatter = logging.Formatter(
+    "%(asctime)s — %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+console_handler.setFormatter(formatter)
+file_handler.setFormatter(formatter)
+
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
+
 
 
 app = Flask(__name__)
@@ -26,15 +44,15 @@ recent_alerts = {}
 
 @app.route('/webhook/alert', methods=['POST'])
 def receive_alert():
-    print("\n" + "="*60)
-    print("[ALERTE REÇUE]")
-    print("="*60)
+    logger.info("\n" + "="*60)
+    logger.info("[ALERTE REÇUE]")
+    logger.info("="*60)
 
     alert_data = request.json
     alert_name = alert_data.get("groupLabels", {}).get("alertname", "")
 
     if alert_name in IGNORED_ALERTS:
-        print(f"[SKIP] Système ignoré : {alert_name}")
+        logger.info(f"[SKIP] Système ignoré : {alert_name}")
         return {"status": "skipped"}
 
     parsed = parse_alert(alert_data)
@@ -42,40 +60,40 @@ def receive_alert():
         return {"status": "error"}, 400
 
     if parsed['severity'] in SKIP_SEVERITIES:
-        print(f"[SKIP] Sévérité : {parsed['severity']}")
+        logger.info(f"[SKIP] Sévérité : {parsed['severity']}")
         return {"status": "skipped"}
 
     if parsed['name'] not in ALLOWED_ALERTS:
-        print(f"[SKIP] Hors scope : {parsed['name']}")
+        logger.info(f"[SKIP] Hors scope : {parsed['name']}")
         return {"status": "skipped", "reason": "not_in_scope"}
 
     alert_key = f"{parsed['name']}_{parsed['service']}"
     now       = time.time()
     if now - recent_alerts.get(alert_key, 0) < DEDUP_WINDOW:
-        print(f"[SKIP] Doublon : {parsed['name']}")
+        logger.info(f"[SKIP] Doublon : {parsed['name']}")
         return {"status": "skipped"}
 
     recent_alerts[alert_key] = now
-    print(f"[DEDUP] ✅ {alert_key}")
-    print(f"  Alert    : {parsed['name']} | Severity : {parsed['severity']}")
-    print(f"  Service  : {parsed['service']} | Pods : {parsed['affected_pods']}")
+    logger.info(f"[DEDUP] ✅ {alert_key}")
+    logger.info(f"  Alert    : {parsed['name']} | Severity : {parsed['severity']}")
+    logger.info(f"  Service  : {parsed['service']} | Pods : {parsed['affected_pods']}")
 
     first_pod = parsed['affected_pods'][0] if parsed['affected_pods'] else None
     metrics   = get_prometheus_metrics(job=parsed['job'], pod=first_pod)
     logs      = get_loki_logs(service=parsed['service'], namespace=parsed['namespace'])
 
-    print(f"\n[EVENTS] Récupération pour {first_pod or parsed['service']}...")
+    logger.info(f"\n[EVENTS] Récupération pour {first_pod or parsed['service']}...")
     events = get_kubernetes_events(
         pod=first_pod or parsed['service'],
         namespace=parsed['namespace']
     )
 
     queue_pos = alert_queue.qsize() + 1
-    print(f"\n[QUEUE] Ajout : {parsed['name']} | Position : {queue_pos}")
+    logger.info(f"\n[QUEUE] Ajout : {parsed['name']} | Position : {queue_pos}")
     alert_queue.put((parsed, metrics, logs, events))
 
-    print("\n[DONE] Alerte mise en queue → pipeline complet en cours...")
-    print("="*60)
+    logger.info("\n[DONE] Alerte mise en queue → pipeline complet en cours...")
+    logger.info("="*60)
     return {"status": "queued"}
 
 # ══════════════════════════════════════════════════════════════
@@ -140,7 +158,7 @@ def approve_remediation(incident_id):
     parsed   = incident['parsed']
     analysis = incident['analysis']
 
-    print(f"\n[REMEDIATION] ✅ Approbation reçue pour {parsed['name']}")
+    logger.info(f"\n[REMEDIATION] ✅ Approbation reçue pour {parsed['name']}")
     results = execute_remediation(analysis)
 
     del pending_remediations[incident_id]
@@ -150,11 +168,9 @@ def approve_remediation(incident_id):
             parsed, results, incident_id  # ← passer incident_id
         )
         minio_url = upload_remediation_to_minio(pdf_bytes, filename)
-        print(f"[REMEDIATION] ✅ PDF sauvegardé : {minio_url}")
+        logger.info(f"[REMEDIATION] ✅ PDF sauvegardé : {minio_url}")
     except Exception as e:
-        print(f"[REMEDIATION] ⚠️ Erreur PDF : {e}")
-
-
+        logger.info(f"[REMEDIATION] ⚠️ Erreur PDF : {e}")
 
     success_count = sum(1 for r in results if r['success'])
     total         = len(results)
@@ -310,13 +326,12 @@ def approve_remediation(incident_id):
 </html>
     """
 
-
 @app.route('/remediate/ignore/<incident_id>', methods=['GET'])
 def ignore_remediation(incident_id):
     incident   = pending_remediations.pop(incident_id, None)
     alert_name = incident['parsed']['name'] if incident else incident_id
 
-    print(f"[REMEDIATION] 🚫 Incident {incident_id} ignoré")
+    logger.info(f"[REMEDIATION] 🚫 Incident {incident_id} ignoré")
 
     return f"""
 <!DOCTYPE html>
@@ -405,7 +420,7 @@ def health():
     }
 
 if __name__ == "__main__":
-    print("[DÉMARRAGE] http://localhost:5000")
+    logger.info("[DÉMARRAGE] http://localhost:5000")
     start_anomaly_scheduler(alert_queue)
     app.run(
         host="0.0.0.0",

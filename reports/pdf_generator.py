@@ -9,6 +9,10 @@ from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER
 from core.kubernetes_events import format_events_text
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 def generate_remediation_pdf(parsed, results,incident_id="unknown"):
     """Génère un PDF avec les résultats de la remédiation"""
     from datetime import datetime
@@ -22,7 +26,6 @@ def generate_remediation_pdf(parsed, results,incident_id="unknown"):
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     filename = f"remediation_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{incident_id}_{parsed['name']}.pdf"
-
 
     BLUE       = HexColor("#1F4E79")
     LIGHT_BLUE = HexColor("#2E75B6")
@@ -248,17 +251,11 @@ def generate_remediation_pdf(parsed, results,incident_id="unknown"):
     pdf_bytes = buffer.getvalue()
     buffer.close()
 
-    print(f"[REMEDIATION PDF] ✅ PDF généré : {filename}")
+    logger.info(f"[REMEDIATION PDF] ✅ PDF généré : {filename}")
     return pdf_bytes, filename
 
-
-
-
-
-
-
 def generate_pdf_report(parsed, metrics, logs, analysis, events=[], incident_id="unknown"):
-    print("\n[PDF] Génération du rapport PDF...")
+    logger.info("\n[PDF] Génération du rapport PDF...")
 
     metrics_summary = extract_metrics_summary(metrics)
     logs_text       = extract_logs_text(logs, max_lines=20)
@@ -477,37 +474,36 @@ def generate_pdf_report(parsed, metrics, logs, analysis, events=[], incident_id=
     content.append(Spacer(1, 0.2*cm))
 
     logs_para_style = ParagraphStyle(
-    "Logs", parent=styles["Normal"],
-    fontSize=7,              # ← plus petit pour tout afficher
-    fontName="Courier",
-    textColor=HexColor("#D4D4D4"),
-    leading=10,
-    leftIndent=8,
-    rightIndent=8,
-    wordWrap='CJK',
-    splitLongWords=True,
-)
+        "Logs", parent=styles["Normal"],
+        fontSize=7, fontName="Courier",
+        textColor=HexColor("#D4D4D4"),
+        leading=10, leftIndent=8, rightIndent=8,
+        wordWrap='CJK', splitLongWords=True,
+    )
 
-    safe_logs = logs_text\
-    .replace("&", "&amp;")\
-    .replace("<", "&lt;")\
-    .replace(">", "&gt;")
+    # Une ligne par row → ReportLab peut découper sur plusieurs pages
+    MAX_CHARS = 140
+    log_rows = []
+    for line in logs_text.split("\n"):
+        safe = (line.replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;"))
+        if len(safe) > MAX_CHARS:
+            safe = safe[:MAX_CHARS] + "…"
+        log_rows.append([Paragraph(safe or " ", logs_para_style)])
 
-    t_logs = Table(
-    [[Paragraph(safe_logs.replace("\n", "<br/>"), logs_para_style)]],
-    colWidths=[17*cm]
-)
-    t_logs.setStyle(TableStyle([
-    ("BACKGROUND",    (0,0), (-1,-1), HexColor("#1E1E1E")),
-    ("TOPPADDING",    (0,0), (-1,-1), 10),
-    ("BOTTOMPADDING", (0,0), (-1,-1), 10),
-    ("LEFTPADDING",   (0,0), (-1,-1), 10),
-    ("RIGHTPADDING",  (0,0), (-1,-1), 10),
-]))
-    content.append(t_logs)
+    if log_rows:
+        t_logs = Table(log_rows, colWidths=[17*cm])
+        t_logs.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), HexColor("#1E1E1E")),
+            ("TOPPADDING",    (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+        ]))
+        content.append(t_logs)
     content.append(Spacer(1, 0.5*cm))
     
-
     # ── SECTION 4 : EVENTS KUBERNETES ─────────────────────────
     sec4 = Table([[Paragraph("4. Events Kubernetes", section_style)]], colWidths=[17*cm])
     sec4.setStyle(TableStyle([
@@ -524,18 +520,25 @@ def generate_pdf_report(parsed, metrics, logs, analysis, events=[], incident_id=
     events_style = ParagraphStyle("Events", parent=styles["Normal"],
         fontSize=8, fontName="Courier",
         textColor=HexColor("#000000"),
-        leading=12, leftIndent=8)
+        leading=12, leftIndent=8, wordWrap='CJK', splitLongWords=True)
 
-    t_events = Table(
-        [[Paragraph(events_text.replace("\n", "<br/>"), events_style)]],
-        colWidths=[17*cm]
-    )
+    # Une ligne par row pour permettre la coupure de page
+    event_rows = []
+    for line in events_text.split("\n"):
+        safe = (line.replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;"))
+        if len(safe) > 140:
+            safe = safe[:140] + "…"
+        event_rows.append([Paragraph(safe or " ", events_style)])
+
+    t_events = Table(event_rows, colWidths=[17*cm])
     t_events.setStyle(TableStyle([
-        ("BACKGROUND",    (0,0), (-1,-1), HexColor("#F8F9FA")),
-        ("GRID",          (0,0), (-1,-1), 0.5, HexColor("#CCCCCC")),
-        ("TOPPADDING",    (0,0), (-1,-1), 8),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 8),
-        ("LEFTPADDING",   (0,0), (-1,-1), 10),
+        ("BACKGROUND",    (0, 0), (-1, -1), HexColor("#F8F9FA")),
+        ("GRID",          (0, 0), (-1, -1), 0.5, HexColor("#CCCCCC")),
+        ("TOPPADDING",    (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 10),
     ]))
     content.append(t_events)
     content.append(Spacer(1, 0.4*cm))
@@ -667,7 +670,6 @@ def generate_pdf_report(parsed, metrics, logs, analysis, events=[], incident_id=
         content.append(t_err)
         content.append(Spacer(1, 0.3*cm))
 
-
 # ── SECTION : COMMANDES DIAGNOSTIC ───────────────────────────
     if analysis.get('commandes_diagnostic'):
         content.append(Spacer(1, 0.3*cm))
@@ -714,7 +716,6 @@ def generate_pdf_report(parsed, metrics, logs, analysis, events=[], incident_id=
         ]))
         content.append(t_cmd)
 
-
     # ── FOOTER ────────────────────────────────────────────────
     content.append(Spacer(1, 0.5*cm))
     footer = Table([[Paragraph(
@@ -734,5 +735,5 @@ def generate_pdf_report(parsed, metrics, logs, analysis, events=[], incident_id=
     pdf_bytes = buffer.getvalue()
     buffer.close()
 
-    print(f"[PDF] ✅ PDF généré : {filename} ({len(pdf_bytes)} bytes)")
+    logger.info(f"[PDF] ✅ PDF généré : {filename} ({len(pdf_bytes)} bytes)")
     return pdf_bytes, filename
