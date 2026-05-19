@@ -1,11 +1,12 @@
 from flask import Flask, request, jsonify
 import time
+import requests
 from config import (
     IGNORED_ALERTS, SKIP_SEVERITIES,
-    DEDUP_WINDOW, MODELS, ALLOWED_ALERTS
+    DEDUP_WINDOW, MODELS, ALLOWED_ALERTS, SERVICES_ROLES, PROMETHEUS_URL
 )
 from core.parser import parse_alert
-from core.prometheus import get_prometheus_metrics
+from core.prometheus import get_prometheus_metrics, get_pods_for_prefix, get_pod_metrics
 from core.loki import get_loki_logs
 from core.kubernetes_events import get_kubernetes_events
 from core.queue_worker import alert_queue
@@ -41,6 +42,13 @@ logger.addHandler(file_handler)
 
 app = Flask(__name__)
 recent_alerts = {}
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    return response
 
 @app.route('/webhook/alert', methods=['POST'])
 def receive_alert():
@@ -418,6 +426,29 @@ def health():
         "model"               : MODELS[current_model_index],
         "pending_remediations": len(pending_remediations),
     }
+
+@app.route('/api/services', methods=['GET'])
+def get_services():
+    result = []
+    for svc in SERVICES_ROLES:
+        try:
+            r   = requests.get(f"{PROMETHEUS_URL}/api/v1/query",
+                               params={"query": f'sum(up{{job="{svc["job"]}"}})'}, timeout=5).json()
+            res = r.get("data", {}).get("result", [])
+            service_up = bool(res and float(res[0]["value"][1]) > 0)
+        except Exception:
+            service_up = False
+
+        roles_data = []
+        for role_cfg in svc["roles"]:
+            pods = get_pods_for_prefix(role_cfg["prefix"], exclude=role_cfg.get("exclude", []))
+            pods_data = [{"pod": pod, **get_pod_metrics(pod)} for pod in pods]
+            if pods_data:
+                roles_data.append({"role": role_cfg["role"], "pods": pods_data})
+
+        result.append({"name": svc["name"], "up": service_up, "roles": roles_data})
+
+    return jsonify({"services": result, "updated_at": datetime.now().isoformat()})
 
 if __name__ == "__main__":
     logger.info("[DÉMARRAGE] http://localhost:5000")

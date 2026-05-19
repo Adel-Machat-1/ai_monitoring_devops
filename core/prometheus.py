@@ -23,6 +23,36 @@ def find_pod_from_prometheus(job):
         logger.info(f"[PROMETHEUS] Erreur find_pod: {str(e)}")
         return None
 
+def get_pods_for_prefix(prefix, namespace="apps", exclude=None):
+    exclude = exclude or []
+    try:
+        r = requests.get(f"{PROMETHEUS_URL}/api/v1/query",
+            params={"query": f'kube_pod_info{{namespace="{namespace}",pod=~"{prefix}.*"}}'},
+            timeout=5).json()
+        pods = [res["metric"]["pod"] for res in r.get("data", {}).get("result", [])]
+        return sorted(p for p in pods if not any(ex in p for ex in exclude))
+    except Exception as e:
+        logger.error(f"[PROMETHEUS] get_pods_for_prefix error: {e}")
+        return []
+
+
+def get_pod_metrics(pod):
+    def _q(query):
+        try:
+            r = requests.get(f"{PROMETHEUS_URL}/api/v1/query",
+                params={"query": query}, timeout=5).json()
+            res = r.get("data", {}).get("result", [])
+            return float(res[0]["value"][1]) if res else 0.0
+        except Exception:
+            return 0.0
+
+    return {
+        "cpu"       : round(_q(f'sum(rate(container_cpu_usage_seconds_total{{pod="{pod}",container!="POD"}}[5m]))'), 6),
+        "memory_mb" : round(_q(f'sum(container_memory_usage_bytes{{pod="{pod}",container!="POD"}})') / 1024 / 1024, 1),
+        "restarts"  : int(_q(f'sum(kube_pod_container_status_restarts_total{{pod="{pod}"}})')),
+    }
+
+
 def get_prometheus_metrics(job, pod=None, minutes=10):
     try:
         end   = int(time.time())
