@@ -44,6 +44,33 @@ def _get_token():
     return _login()
 
 
+def _build_type(parsed):
+    """Génère un type dynamique selon le nom de l'alerte détectée."""
+    name = parsed.get("name", "")
+
+    if name.startswith("AnomalyDetected_"):
+        service = name.replace("AnomalyDetected_", "").lower()
+        return f"anomaly-{service}"
+
+    type_map = {
+        "PostgresDown"             : "service-down",
+        "MongoDBDown"              : "service-down",
+        "RedisDown"                : "service-down",
+        "RedpandaDown"             : "service-down",
+        "KeycloakDown"             : "service-down",
+        "PostgresPodNotRunning"    : "pod-not-running",
+        "MongoPodNotRunning"       : "pod-not-running",
+        "RedisPodNotRunning"       : "pod-not-running",
+        "RedpandaPodNotRunning"    : "pod-not-running",
+        "KeycloakPodNotRunning"    : "pod-not-running",
+        "AppCrashLooping"          : "crash-loop",
+        "AppDeploymentUnavailable" : "deployment-unavailable",
+        "AppPodNotReady"           : "pod-not-ready",
+    }
+
+    return type_map.get(name, "incident")
+
+
 def _build_description(parsed):
     """Construit une description lisible depuis les données de l'alerte."""
     name      = parsed.get("name", "unknown")
@@ -79,7 +106,7 @@ def send_alarm_to_ksm(parsed, report_url=None, max_retries=3):
 
     payload = {
         "description":  _build_description(parsed),
-        "type":         "database-incident",
+        "type":         _build_type(parsed),
         "triggered_at": triggered_at,
         "report_url":   report_url,
     }

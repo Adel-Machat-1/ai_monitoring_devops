@@ -427,8 +427,8 @@ def health():
         "pending_remediations": len(pending_remediations),
     }
 
-@app.route('/api/services', methods=['GET'])
-def get_services():
+#@app.route('/api/services', methods=['GET'])
+#def get_services():
     result = []
     for svc in SERVICES_ROLES:
         try:

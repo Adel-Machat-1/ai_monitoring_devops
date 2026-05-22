@@ -9673,3 +9673,179 @@
 2026-05-19 16:03:56 —   [postgresql] cpu: 0.0000
 2026-05-19 16:03:57 — 127.0.0.1 - - [19/May/2026 16:03:57] "POST /webhook/alert HTTP/1.1" 200 -
 2026-05-19 16:03:57 — 127.0.0.1 - - [19/May/2026 16:03:57] "POST /webhook/alert HTTP/1.1" 200 -
+2026-05-21 15:12:25 — [DÉMARRAGE] http://localhost:5000
+2026-05-21 15:12:25 — [SCHEDULER] Démarrage — intervalle: 5 minutes
+2026-05-21 15:12:25 — [SCHEDULER] Thread démarré ✅
+2026-05-21 15:12:25 — [SCHEDULER] Première collecte dans 30 secondes...
+2026-05-21 15:12:26 — [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.16.60.14:5000
+2026-05-21 15:12:26 — [33mPress CTRL+C to quit[0m
+2026-05-21 15:12:34 — 
+============================================================
+2026-05-21 15:12:34 — [ALERTE REÇUE]
+2026-05-21 15:12:34 — ============================================================
+2026-05-21 15:12:34 — [SKIP] Système ignoré : InfoInhibitor
+2026-05-21 15:12:34 — 127.0.0.1 - - [21/May/2026 15:12:34] "POST /webhook/alert HTTP/1.1" 200 -
+2026-05-21 15:12:35 — 
+============================================================
+2026-05-21 15:12:35 — [ALERTE REÇUE]
+2026-05-21 15:12:35 — ============================================================
+2026-05-21 15:12:35 — [SKIP] Système ignoré : Watchdog
+2026-05-21 15:12:35 — 127.0.0.1 - - [21/May/2026 15:12:35] "POST /webhook/alert HTTP/1.1" 200 -
+2026-05-21 15:12:55 — 
+==================================================
+2026-05-21 15:12:55 — [SCHEDULER] Cycle — 15:12:55
+2026-05-21 15:12:55 — ==================================================
+2026-05-21 15:12:55 — 
+[COLLECTOR] Collecte — 15:12:55
+2026-05-21 15:12:55 —   [keycloak] cpu: 0.3518
+2026-05-21 15:12:55 —   [keycloak] memory: 813670400.0000
+2026-05-21 15:12:55 —   [keycloak] restarts: 30.0000
+2026-05-21 15:12:56 —   [keycloak] up: 2.0000
+2026-05-21 15:12:56 —   [postgresql] cpu: 0.0721
+2026-05-21 15:12:56 —   [postgresql] memory: 315695104.0000
+2026-05-21 15:12:56 —   [postgresql] up: 1.0000
+2026-05-21 15:12:56 —   [mongodb] cpu: 0.4301
+2026-05-21 15:12:56 —   [mongodb] memory: 1108426752.0000
+2026-05-21 15:12:56 —   [mongodb] up: 1.0000
+2026-05-21 15:12:57 —   [redis] cpu: 0.2645
+2026-05-21 15:12:57 —   [redis] memory: 550010880.0000
+2026-05-21 15:12:57 —   [redis] connections: 7.0000
+2026-05-21 15:12:57 —   [redis] up: 4.0000
+2026-05-21 15:12:57 —   [redpanda] cpu: 0.0383
+2026-05-21 15:12:57 —   [redpanda] memory: 1257779200.0000
+2026-05-21 15:12:57 —   [redpanda] up: 1.0000
+2026-05-21 15:12:57 —   [keycloak] 🔴 ANOMALIE — Score d'anomalie : 0.69 — comportement inhabituel détecté
+2026-05-21 15:12:57 —   [postgresql] ✅ Normal — Normal (score: 0.60)
+2026-05-21 15:12:57 —   [mongodb] 🔴 ANOMALIE — Score d'anomalie : 0.61 — comportement inhabituel détecté
+2026-05-21 15:12:58 —   [redis] 🔴 ANOMALIE — Score d'anomalie : 0.60 — comportement inhabituel détecté
+2026-05-21 15:12:58 —   [redpanda] 🔴 ANOMALIE — Score d'anomalie : 0.59 — comportement inhabituel détecté
+2026-05-21 15:12:58 — 
+[SCHEDULER] ⚠️ 4 anomalie(s) détectée(s) !
+2026-05-21 15:12:58 — [LOKI] ✅ 3 stream(s) | 50 lignes
+2026-05-21 15:12:59 — [EVENTS] ✅ 75 event(s) trouvé(s) pour keycloak-0
+2026-05-21 15:12:59 — [SCHEDULER] → Envoi dans queue GPT-4 : AnomalyDetected_Keycloak
+2026-05-21 15:12:59 — 
+[QUEUE] Traitement : AnomalyDetected_Keycloak (warning)
+2026-05-21 15:12:59 — [GPT-4] Tentative 1/3 — gpt-4o-mini
+2026-05-21 15:12:59 — [LOKI] ✅ 1 stream(s) | 50 lignes
+2026-05-21 15:13:00 — [EVENTS] ✅ 72 event(s) trouvé(s) pour mongodb-0
+2026-05-21 15:13:00 — [SCHEDULER] → Envoi dans queue GPT-4 : AnomalyDetected_Mongodb
+2026-05-21 15:13:01 — [LOKI] ✅ 2 stream(s) | 50 lignes
+2026-05-21 15:13:01 — [EVENTS] ✅ 68 event(s) trouvé(s) pour redis-master-0
+2026-05-21 15:13:01 — [SCHEDULER] → Envoi dans queue GPT-4 : AnomalyDetected_Redis
+2026-05-21 15:13:02 — [LOKI] ✅ 4 stream(s) | 50 lignes
+2026-05-21 15:13:02 — [EVENTS] ✅ 109 event(s) trouvé(s) pour redpanda-0
+2026-05-21 15:13:02 — [SCHEDULER] → Envoi dans queue GPT-4 : AnomalyDetected_Redpanda
+2026-05-21 15:13:02 — 
+[SCHEDULER] Prochain cycle dans 5 minutes...
+2026-05-21 15:13:12 — HTTP Request: POST https://models.inference.ai.azure.com/chat/completions "HTTP/1.1 200 OK"
+2026-05-21 15:13:12 — [GPT-4] ✅ Réponse reçue (1436 chars) via gpt-4o-mini
+2026-05-21 15:13:12 — 
+🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖
+2026-05-21 15:13:12 —       ANALYSE GPT-4 — ROOT CAUSE ANALYSIS
+2026-05-21 15:13:12 — 🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖
+2026-05-21 15:13:12 — 
+📛 AnomalyDetected_Keycloak (WARNING)
+2026-05-21 15:13:12 — 🔍 Le pod keycloak-0 est DOWN (Up=0) avec 2 restarts, indiquant un CrashLoop. Les logs montrent l'erreur exacte : 'Readiness probe failed: Get "http://10.42.0.254:8080/realms/master": dial tcp 10.42.0.254:8080: connect: connection refused'. Les événements indiquent également un 'BackOff' pour le conteneur keycloak.
+2026-05-21 15:13:12 — 🎯 Le service Keycloak ne parvient pas à démarrer correctement, ce qui entraîne des échecs de liveness et readiness probes. Cela est probablement dû à une configuration incorrecte ou à un problème de dépendance, comme un volume non monté ou une connexion à la base de données échouée.
+2026-05-21 15:13:12 — ⚡ CRITICAL
+2026-05-21 15:13:12 — 
+💥 SERVICES IMPACTÉS :
+2026-05-21 15:13:12 —    • {'service': 'keycloak-0', 'etat': 'DOWN'}
+2026-05-21 15:13:12 — 
+🔧 ACTIONS CORRECTIVES :
+2026-05-21 15:13:12 —    1. kubectl delete pod keycloak-0 -n apps
+2026-05-21 15:13:12 —    2. kubectl describe pod keycloak-0 -n apps
+2026-05-21 15:13:12 —    3. kubectl logs keycloak-0 -n apps --previous
+2026-05-21 15:13:12 —    4. kubectl get events -n apps --sort-by='.metadata.creationTimestamp'
+2026-05-21 15:13:12 — 
+🖥️  COMMANDES DIAGNOSTIC :
+2026-05-21 15:13:12 —    $ kubectl get pods -n apps
+2026-05-21 15:13:12 —    $ kubectl describe pod keycloak-0 -n apps
+2026-05-21 15:13:12 —    $ kubectl get pvc -n apps
+2026-05-21 15:13:12 — 
+🛡️  PRÉVENTION :
+2026-05-21 15:13:12 —    Vérifier la configuration des probes de readiness et l'état des volumes montés. S'assurer que toutes les dépendances (comme la base de données) sont accessibles avant le démarrage de Keycloak.
+2026-05-21 15:13:12 — 🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖🤖
+2026-05-21 15:13:12 — 
+[PDF] Génération du rapport PDF...
+2026-05-21 15:13:12 — 
+[PDF] Génération du rapport PDF...
+2026-05-21 15:13:12 — [PDF] ✅ PDF généré : incident_20260521_151312_f4076949_AnomalyDetected_Keycloak.pdf (9074 bytes)
+2026-05-21 15:13:12 — [PDF] ✅ PDF généré : incident_20260521_151312_f4076949_AnomalyDetected_Keycloak.pdf (9074 bytes)
+2026-05-21 15:13:12 — 
+[MINIO] Upload de incident_20260521_151312_f4076949_AnomalyDetected_Keycloak.pdf...
+2026-05-21 15:13:12 — [MINIO] ✅ Upload réussi — URL pré-signée générée
+2026-05-21 15:13:34 — [REMEDIATION] 🔔 Incident f4076949 en attente d'approbation
+2026-05-21 15:13:34 — [QUEUE] ✅ Pipeline complet : AnomalyDetected_Keycloak
+2026-05-21 15:13:34 — [QUEUE] Attente 30s...
+2026-05-21 15:18:08 — [DÉMARRAGE] http://localhost:5000
+2026-05-21 15:18:08 — [SCHEDULER] Démarrage — intervalle: 5 minutes
+2026-05-21 15:18:08 — [SCHEDULER] Thread démarré ✅
+2026-05-21 15:18:08 — [SCHEDULER] Première collecte dans 30 secondes...
+2026-05-21 15:18:09 — [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.16.60.14:5000
+2026-05-21 15:18:09 — [33mPress CTRL+C to quit[0m
+2026-05-21 15:18:14 — 
+============================================================
+2026-05-21 15:18:14 — [ALERTE REÇUE]
+2026-05-21 15:18:14 — ============================================================
+2026-05-21 15:18:14 — [SKIP] Système ignoré : AlertmanagerFailedToSendAlerts
+2026-05-21 15:18:14 — 127.0.0.1 - - [21/May/2026 15:18:14] "POST /webhook/alert HTTP/1.1" 200 -
+2026-05-21 15:18:17 — 
+============================================================
+2026-05-21 15:18:17 — [ALERTE REÇUE]
+2026-05-21 15:18:17 — 
+============================================================
+2026-05-21 15:18:17 — ============================================================
+2026-05-21 15:18:17 — 
+============================================================
+2026-05-21 15:18:17 — [SKIP] Système ignoré : AlertmanagerClusterFailedToSendAlerts
+2026-05-21 15:18:17 — [ALERTE REÇUE]
+2026-05-21 15:18:17 — [ALERTE REÇUE]
+2026-05-21 15:18:17 — 127.0.0.1 - - [21/May/2026 15:18:17] "POST /webhook/alert HTTP/1.1" 200 -
+2026-05-21 15:18:17 — ============================================================
+2026-05-21 15:18:17 — ============================================================
+2026-05-21 15:18:17 — [SKIP] Système ignoré : AlertmanagerClusterFailedToSendAlerts
+2026-05-21 15:18:17 — [SKIP] Système ignoré : AlertmanagerFailedToSendAlerts
+2026-05-21 15:18:17 — 127.0.0.1 - - [21/May/2026 15:18:17] "POST /webhook/alert HTTP/1.1" 200 -
+2026-05-21 15:18:17 — 127.0.0.1 - - [21/May/2026 15:18:17] "POST /webhook/alert HTTP/1.1" 200 -
+2026-05-21 15:18:34 — 
+============================================================
+2026-05-21 15:18:34 — [ALERTE REÇUE]
+2026-05-21 15:18:34 — ============================================================
+2026-05-21 15:18:34 — [SKIP] Système ignoré : InfoInhibitor
+2026-05-21 15:18:34 — 127.0.0.1 - - [21/May/2026 15:18:34] "POST /webhook/alert HTTP/1.1" 200 -
+2026-05-21 15:18:34 — 
+============================================================
+2026-05-21 15:18:34 — [ALERTE REÇUE]
+2026-05-21 15:18:34 — ============================================================
+2026-05-21 15:18:34 — [SKIP] Système ignoré : Watchdog
+2026-05-21 15:18:34 — 127.0.0.1 - - [21/May/2026 15:18:34] "POST /webhook/alert HTTP/1.1" 200 -
+2026-05-21 15:18:38 — 
+==================================================
+2026-05-21 15:18:38 — [SCHEDULER] Cycle — 15:18:38
+2026-05-21 15:18:38 — ==================================================
+2026-05-21 15:18:38 — 
+[COLLECTOR] Collecte — 15:18:38
+2026-05-21 15:18:38 —   [keycloak] cpu: 0.0204
+2026-05-21 15:18:38 —   [keycloak] memory: 835915776.0000
+2026-05-21 15:18:38 —   [keycloak] restarts: 30.0000
+2026-05-21 15:18:38 —   [keycloak] up: 2.0000
+2026-05-21 15:18:38 —   [postgresql] cpu: 0.0634
+2026-05-21 15:18:38 —   [postgresql] memory: 307429376.0000
+2026-05-21 15:18:38 —   [postgresql] up: 1.0000
+2026-05-21 15:18:39 —   [mongodb] cpu: 0.3701
+2026-05-21 15:18:39 —   [mongodb] memory: 1102704640.0000
+2026-05-21 15:18:39 —   [mongodb] up: 1.0000
+2026-05-21 15:18:39 —   [redis] cpu: 0.2469
+2026-05-21 15:18:39 —   [redis] memory: 534695936.0000
+2026-05-21 15:18:39 —   [redis] connections: 7.0000
+2026-05-21 15:18:39 —   [redis] up: 4.0000
+2026-05-21 15:18:39 —   [redpanda] cpu: 0.0361
+2026-05-21 15:18:39 —   [redpanda] memory: 1237864448.0000
