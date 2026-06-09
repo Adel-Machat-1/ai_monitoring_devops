@@ -12,9 +12,10 @@ from core.kubernetes_events import format_events_text
 import logging
 logger = logging.getLogger(__name__)
 
-
+# ── SELF HEALING COMMENTÉ — generate_remediation_pdf désactivée ──────────────
+# def generate_remediation_pdf(parsed, results, incident_id="unknown"):
 def generate_remediation_pdf(parsed, results,incident_id="unknown"):
-    """Génère un PDF avec les résultats de la remédiation"""
+    """Génère un PDF avec les résultats de la remédiation — DÉSACTIVÉ (self-healing commenté)"""
     from datetime import datetime
     import io
     from reportlab.lib.pagesizes import A4

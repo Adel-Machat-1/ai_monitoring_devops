@@ -7,7 +7,7 @@ from core.ksm_connector import send_alarm_to_ksm
 from reports.pdf_generator import generate_pdf_report
 from reports.minio_uploader import upload_to_minio
 from reports.email_sender import send_email_report
-from core.state import pending_remediations
+# from core.state import pending_remediations
 
 import logging
 logger = logging.getLogger(__name__)
@@ -68,15 +68,15 @@ def process_alert(parsed, metrics, logs, events):
         # ── KSM — notifier l'agent d'astreinte + lien rapport ─
         send_alarm_to_ksm(parsed, report_url=minio_url)
 
-        # ── Stocker dans pending_remediations ─────────────────
-        pending_remediations[incident_id] = {
-            "parsed"  : parsed,
-            "analysis": analysis,
-        }
-        logger.info(f"[REMEDIATION] 🔔 Incident {incident_id} en attente d'approbation")
+        # # ── Stocker dans pending_remediations ─────────────────
+        # pending_remediations[incident_id] = {
+        #     "parsed"  : parsed,
+        #     "analysis": analysis,
+        # }
+        # logger.info(f"[REMEDIATION] 🔔 Incident {incident_id} en attente d'approbation")
 
         # ── Email avec boutons approbation ────────────────────
-        ##send_email_report(parsed, analysis, pdf_bytes, filename, minio_url, incident_id)
+        send_email_report(parsed, analysis, pdf_bytes, filename, minio_url, incident_id)
 
         return analysis
 

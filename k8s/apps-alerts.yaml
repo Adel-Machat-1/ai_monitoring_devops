@@ -5,7 +5,7 @@ metadata:
   namespace: monitoring
   labels:
     app: kube-prometheus-stack
-    release: monitoring   #must match Prometheus selector
+    release: monitoring   # must match Prometheus selector
 spec:
   groups:
     - name: apps-basic-alerts
@@ -18,8 +18,7 @@ spec:
         - alert: PostgresDown
           expr: absent(up{job="postgresql-primary-metrics"}) or up{job="postgresql-primary-metrics"} == 0
           for: 30s
-          labels:0.
-          
+          labels:
             severity: critical
           annotations:
             summary: "PostgreSQL is DOWN"
@@ -59,7 +58,7 @@ spec:
             severity: critical
           annotations:
             summary: "Keycloak is DOWN"
-            description: "The Keycloak exporter has not responded for 1 minute" 
+            description: "The Keycloak exporter has not responded for 1 minute"
 
         # ============================================
         # RULE 2: pod not healthy
@@ -126,22 +125,7 @@ spec:
             description: "Pod {{ $labels.pod }} restarted more than 3 times in 15 minutes"
 
         # ============================================
-        # RULE 4: deployment unavailable
-        # ============================================
-        - alert: AppDeploymentUnavailable
-          expr: |
-            kube_deployment_status_replicas_unavailable{
-              namespace="apps"
-            } > 0
-          for: 30s
-          labels:
-            severity: critical
-          annotations:
-            summary: "Deployment unavailable: {{ $labels.deployment }}"
-            description: "{{ $value }} unavailable replica(s) in deployment {{ $labels.deployment }}"
-
-        # ============================================
-        # RULE 5: pod not ready
+        # RULE 4: pod not ready
         # ============================================
         - alert: AppPodNotReady
           expr: |
@@ -155,4 +139,37 @@ spec:
             severity: warning
           annotations:
             summary: "Pod not ready: {{ $labels.pod }}"
-            description: "Pod {{ $labels.pod }} has been failing readiness for 2 minutes"
+            description: "Pod {{ $labels.pod }} has been failing readiness checks"
+
+        # ============================================
+        # RULE 5: StatefulSet replicas not ready
+        # (remplace AppDeploymentUnavailable qui ne fonctionnait pas
+        #  car toutes les apps sont des StatefulSets, pas des Deployments)
+        # ============================================
+        - alert: AppStatefulSetNotReady
+          expr: |
+            kube_statefulset_status_replicas_ready{namespace="apps"}
+            < kube_statefulset_status_replicas{namespace="apps"}
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "StatefulSet dégradé: {{ $labels.statefulset }}"
+            description: "{{ $labels.statefulset }} a moins de replicas ready que désiré"
+
+        # ============================================
+        # RULE 6: OOMKilled
+        # ============================================
+        - alert: AppOOMKilled
+          expr: |
+            kube_pod_container_status_last_terminated_reason{
+              namespace="apps",
+              reason="OOMKilled",
+              pod=~".*(postgres|mongo|redis|redpanda|keycloak).*"
+            } == 1
+          for: 0s
+          labels:
+            severity: critical
+          annotations:
+            summary: "OOMKilled: {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} a été tué par manque de mémoire"

@@ -215,34 +215,34 @@ def test_anomaly_collector_query_error():
         assert result == 0.0
 
 # ══════════════════════════════════════════════════════════════
-# TEST 7 — AUTO REMEDIATION
+# # TEST 7 — AUTO REMEDIATION — COMMENTÉ
 # ══════════════════════════════════════════════════════════════
-def test_is_safe_command_kubectl_get():
-    """Test commande safe kubectl get"""
-    from core.auto_remediation import is_safe_command
-    assert is_safe_command("kubectl get pods -n apps") == True
-
-def test_is_safe_command_kubectl_logs():
-    """Test commande safe kubectl logs"""
-    from core.auto_remediation import is_safe_command
-    assert is_safe_command("kubectl logs postgresql-primary-0 -n apps") == True
-
-def test_is_safe_command_kubectl_restart():
-    """Test commande restart safe"""
-    from core.auto_remediation import is_safe_command
-    assert is_safe_command("kubectl rollout restart statefulset/postgresql -n apps") == True
-
-def test_is_safe_command_kubectl_delete_namespace():
-    """Test commande dangereuse bloquée"""
-    from core.auto_remediation import is_safe_command
-    assert is_safe_command("kubectl delete namespace apps") == False
-
-def test_is_safe_command_rm():
-    """Test commande rm dangereuse"""
-    from core.auto_remediation import is_safe_command
-    assert is_safe_command("rm -rf /") == False
-
-def test_is_safe_command_kubectl_delete_deployment():
-    """Test delete deployment bloqué"""
-    from core.auto_remediation import is_safe_command
-    assert is_safe_command("kubectl delete deployment agent-ia") == False
+# def test_is_safe_command_kubectl_get():
+#     """Test commande safe kubectl get"""
+#     from core.auto_remediation import is_safe_command
+#     assert is_safe_command("kubectl get pods -n apps") == True
+#
+# def test_is_safe_command_kubectl_logs():
+#     """Test commande safe kubectl logs"""
+#     from core.auto_remediation import is_safe_command
+#     assert is_safe_command("kubectl logs postgresql-primary-0 -n apps") == True
+#
+# def test_is_safe_command_kubectl_restart():
+#     """Test commande restart safe"""
+#     from core.auto_remediation import is_safe_command
+#     assert is_safe_command("kubectl rollout restart statefulset/postgresql -n apps") == True
+#
+# def test_is_safe_command_kubectl_delete_namespace():
+#     """Test commande dangereuse bloquée"""
+#     from core.auto_remediation import is_safe_command
+#     assert is_safe_command("kubectl delete namespace apps") == False
+#
+# def test_is_safe_command_rm():
+#     """Test commande rm dangereuse"""
+#     from core.auto_remediation import is_safe_command
+#     assert is_safe_command("rm -rf /") == False
+#
+# def test_is_safe_command_kubectl_delete_deployment():
+#     """Test delete deployment bloqué"""
+#     from core.auto_remediation import is_safe_command
+#     assert is_safe_command("kubectl delete deployment agent-ia") == False

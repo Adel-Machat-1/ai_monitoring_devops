@@ -95,28 +95,6 @@ def get_minio_client():
     return Minio("localhost:9000", access_key="minioadmin",
                  secret_key="minioadmin123", secure=False)
 
-@st.cache_data(ttl=30)
-def load_remediation_files():
-    """Charge les fichiers de remédiation depuis self-healing-reports"""
-    try:
-        client = get_minio_client()
-        # Créer le bucket s'il n'existe pas
-        if not client.bucket_exists("self-healing-reports"):
-            return {}
-        remediation_map = {}
-        for obj in client.list_objects("self-healing-reports"):
-            name  = obj.object_name
-            parts = name.replace(".pdf", "").split("_")
-            # Format: remediation_20260430_113843_abc123_KeycloakDown.pdf
-            if len(parts) >= 5:
-                incident_id = parts[3]  # ← abc123
-                remediation_map[incident_id] = {
-                    "filename": name,
-                    "size"    : f"{obj.size/1024:.1f} KB"
-                }
-        return remediation_map
-    except:
-        return {}
 
 @st.cache_data(ttl=30)
 def load_reports():
@@ -189,8 +167,8 @@ def load_reports():
 # ══════════════════════════════════════════════════════════════
 st.markdown("""
 <div class="page-header">
-    <h1>📋 Incidents & Remédiation</h1>
-    <p>Liste complète des incidents et leurs rapports de self-healing</p>
+    <h1>📋 Incidents</h1>
+    <p>Liste complète des incidents et leurs rapports PDF</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -202,8 +180,7 @@ with c1:
 with c2:
     st.caption(f"⏱️ {datetime.now().strftime('%d/%m/%Y à %H:%M:%S')}")
 
-df               = load_reports()
-remediation_map  = load_remediation_files()
+df = load_reports()
 
 # ── Filtres ───────────────────────────────────────────────────
 st.markdown('<p class="section-title">🔍 Filtres</p>', unsafe_allow_html=True)
@@ -264,15 +241,14 @@ st.markdown(
 if not fdf.empty:
 
     # ── Header colonnes ───────────────────────────────────────
-    h1, h2, h3, h4, h5, h6, h7, h8 = st.columns([2.5, 1.3, 1.8, 1.3, 1.8, 0.9, 1.1, 1.3])
+    h1, h2, h3, h4, h5, h6, h7 = st.columns([2.5, 1.3, 1.8, 1.5, 2.0, 0.9, 1.2])
     h1.markdown('<div class="col-header">Alerte</div>',       unsafe_allow_html=True)
     h2.markdown('<div class="col-header">Sévérité</div>',     unsafe_allow_html=True)
     h3.markdown('<div class="col-header">Type</div>',         unsafe_allow_html=True)
     h4.markdown('<div class="col-header">Application</div>',  unsafe_allow_html=True)
     h5.markdown('<div class="col-header">Date & Heure</div>', unsafe_allow_html=True)
     h6.markdown('<div class="col-header">Taille</div>',       unsafe_allow_html=True)
-    h7.markdown('<div class="col-header">Incident</div>',     unsafe_allow_html=True)
-    h8.markdown('<div class="col-header">🔧 Self-Healing</div>', unsafe_allow_html=True)
+    h7.markdown('<div class="col-header">Rapport</div>',      unsafe_allow_html=True)
 
     # ── Lignes ────────────────────────────────────────────────
     for _, row in page_df.iterrows():
@@ -283,12 +259,7 @@ if not fdf.empty:
         sev_lbl = "CRITICAL" if is_crit else "WARNING"
         border  = "#e53e3e" if is_crit else "#ed8936"
 
-        # Vérifier si remédiation existe
-        incident_id      = row.get('incident_id')
-        remediation_info = remediation_map.get(incident_id) if incident_id else None
-        has_remediation  = remediation_info is not None
-
-        c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([2.5, 1.3, 1.8, 1.3, 1.8, 0.9, 1.1, 1.3])
+        c1, c2, c3, c4, c5, c6, c7 = st.columns([2.5, 1.3, 1.8, 1.5, 2.0, 0.9, 1.2])
 
         with c1:
             st.markdown(f"""
@@ -338,7 +309,6 @@ if not fdf.empty:
                 {row['size']}
             </div>""", unsafe_allow_html=True)
 
-        # ── Bouton PDF Incident ───────────────────────────────
         with c7:
             try:
                 pdf_bytes = get_minio_client().get_object(
@@ -353,31 +323,6 @@ if not fdf.empty:
                 )
             except:
                 st.markdown("❌", unsafe_allow_html=True)
-
-        # ── Bouton PDF Self-Healing ───────────────────────────
-        with c8:
-            if has_remediation:
-                try:
-                    rem_bytes = get_minio_client().get_object(
-                        "self-healing-reports",
-                        remediation_info['filename']
-                    ).read()
-                    st.download_button(
-                        label     = "🔧 Remédiation",
-                        data      = rem_bytes,
-                        file_name = remediation_info['filename'],
-                        mime      = "application/pdf",
-                        key       = f"rem_{remediation_info['filename']}",
-                        type      = "primary",
-                    )
-                except:
-                    st.markdown("❌", unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div style="padding:8px;text-align:center;
-                            font-size:11px;color:#a0aec0;">
-                    ➖ Aucune
-                </div>""", unsafe_allow_html=True)
 
     # ── Pagination ────────────────────────────────────────────
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)

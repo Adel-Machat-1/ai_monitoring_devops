@@ -1,7 +1,7 @@
 from config import (
     MINIO_ENDPOINT, MINIO_ACCESS_KEY,
     MINIO_SECRET_KEY, MINIO_BUCKET,
-    MINIO_SECURE, MINIO_BUCKET_REMEDIATION
+    MINIO_SECURE  # , MINIO_BUCKET_REMEDIATION
 )
 
 import io
@@ -51,28 +51,28 @@ def upload_to_minio(pdf_bytes, filename):
         logger.info(f"[MINIO] ❌ Erreur : {str(e)}")
         return None
 
-def upload_remediation_to_minio(pdf_bytes, filename):
-    """Upload PDF remédiation dans bucket self-healing-reports"""
-    logger.info(f"\n[MINIO] Upload remédiation : {filename}...")
-    try:
-        client = get_minio_client()
-
-        # Créer bucket self-healing-reports si absent
-        if not client.bucket_exists(MINIO_BUCKET_REMEDIATION):
-            client.make_bucket(MINIO_BUCKET_REMEDIATION)
-            logger.info(f"[MINIO] Bucket '{MINIO_BUCKET_REMEDIATION}' créé")
-
-        pdf_stream = io.BytesIO(pdf_bytes)
-        client.put_object(
-            MINIO_BUCKET_REMEDIATION, filename,
-            pdf_stream, length=len(pdf_bytes),
-            content_type="application/pdf"
-        )
-
-        minio_url = f"http://{MINIO_ENDPOINT}/{MINIO_BUCKET_REMEDIATION}/{filename}"
-        logger.info(f"[MINIO] ✅ Upload remédiation réussi : {minio_url}")
-        return minio_url
-
-    except S3Error as e:
-        logger.info(f"[MINIO] ❌ Erreur remédiation : {str(e)}")
-        return None
+# def upload_remediation_to_minio(pdf_bytes, filename):
+#     """Upload PDF remédiation dans bucket self-healing-reports"""
+#     logger.info(f"\n[MINIO] Upload remédiation : {filename}...")
+#     try:
+#         client = get_minio_client()
+#
+#         # Créer bucket self-healing-reports si absent
+#         if not client.bucket_exists(MINIO_BUCKET_REMEDIATION):
+#             client.make_bucket(MINIO_BUCKET_REMEDIATION)
+#             logger.info(f"[MINIO] Bucket '{MINIO_BUCKET_REMEDIATION}' créé")
+#
+#         pdf_stream = io.BytesIO(pdf_bytes)
+#         client.put_object(
+#             MINIO_BUCKET_REMEDIATION, filename,
+#             pdf_stream, length=len(pdf_bytes),
+#             content_type="application/pdf"
+#         )
+#
+#         minio_url = f"http://{MINIO_ENDPOINT}/{MINIO_BUCKET_REMEDIATION}/{filename}"
+#         logger.info(f"[MINIO] ✅ Upload remédiation réussi : {minio_url}")
+#         return minio_url
+#
+#     except S3Error as e:
+#         logger.info(f"[MINIO] ❌ Erreur remédiation : {str(e)}")
+#         return None

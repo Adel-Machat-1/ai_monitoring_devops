@@ -28,46 +28,47 @@ def send_email_report(parsed, analysis, pdf_bytes, filename, minio_url, incident
     cmds    = analysis.get('commandes_diagnostic', []) if "error" not in analysis else []
     color   = "#dc3545" if sev == "CRITICAL" else "#fd7e14" if sev == "WARNING" else "#ffc107"
 
-    # ── Boutons remédiation ───────────────────────────────────
-    base_url = "http://localhost:5000"
-    if incident_id:
-        remediation_buttons = f"""
-      <!-- BOUTONS SELF HEALING -->
-      <div style="background:#f0fff4;border:1px solid #c6f6d5;border-radius:10px;
-                  padding:20px;text-align:center;margin-bottom:20px;">
-        <p style="margin:0 0 8px;color:#276749;font-size:14px;font-weight:bold;">
-          🔧 Auto-Remédiation — Niveau 1
-        </p>
-        <p style="margin:0 0 16px;color:#4a5568;font-size:12px;">
-          Voulez-vous exécuter les actions correctives proposées par l'Agent IA ?
-        </p>
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td align="center" style="padding:0 8px;">
-              <a href="{base_url}/remediate/approve/{incident_id}"
-                 style="display:inline-block;background:#38a169;color:white;
-                        padding:12px 32px;border-radius:8px;text-decoration:none;
-                        font-weight:bold;font-size:14px;">
-                ✅ APPROUVER
-              </a>
-            </td>
-            <td align="center" style="padding:0 8px;">
-              <a href="{base_url}/remediate/ignore/{incident_id}"
-                 style="display:inline-block;background:#e53e3e;color:white;
-                        padding:12px 32px;border-radius:8px;text-decoration:none;
-                        font-weight:bold;font-size:14px;">
-                🚫 IGNORER
-              </a>
-            </td>
-          </tr>
-        </table>
-        <p style="margin:12px 0 0;color:#718096;font-size:11px;">
-          Incident ID : <b>{incident_id}</b>
-        </p>
-      </div>
-        """
-    else:
-        remediation_buttons = ""
+    # # ── Boutons remédiation — SELF HEALING COMMENTÉ ─────────
+    # base_url = "http://localhost:5000"
+    # if incident_id:
+    #     remediation_buttons = f"""
+    #   <!-- BOUTONS SELF HEALING -->
+    #   <div style="background:#f0fff4;border:1px solid #c6f6d5;border-radius:10px;
+    #               padding:20px;text-align:center;margin-bottom:20px;">
+    #     <p style="margin:0 0 8px;color:#276749;font-size:14px;font-weight:bold;">
+    #       🔧 Auto-Remédiation — Niveau 1
+    #     </p>
+    #     <p style="margin:0 0 16px;color:#4a5568;font-size:12px;">
+    #       Voulez-vous exécuter les actions correctives proposées par l'Agent IA ?
+    #     </p>
+    #     <table width="100%" cellpadding="0" cellspacing="0">
+    #       <tr>
+    #         <td align="center" style="padding:0 8px;">
+    #           <a href="{base_url}/remediate/approve/{incident_id}"
+    #              style="display:inline-block;background:#38a169;color:white;
+    #                     padding:12px 32px;border-radius:8px;text-decoration:none;
+    #                     font-weight:bold;font-size:14px;">
+    #             ✅ APPROUVER
+    #           </a>
+    #         </td>
+    #         <td align="center" style="padding:0 8px;">
+    #           <a href="{base_url}/remediate/ignore/{incident_id}"
+    #              style="display:inline-block;background:#e53e3e;color:white;
+    #                     padding:12px 32px;border-radius:8px;text-decoration:none;
+    #                     font-weight:bold;font-size:14px;">
+    #             🚫 IGNORER
+    #           </a>
+    #         </td>
+    #       </tr>
+    #     </table>
+    #     <p style="margin:12px 0 0;color:#718096;font-size:11px;">
+    #       Incident ID : <b>{incident_id}</b>
+    #     </p>
+    #   </div>
+    #     """
+    # else:
+    #     remediation_buttons = ""
+    remediation_buttons = ""
 
     # ── Version HTML ──────────────────────────────────────────
     actions_html = "".join([

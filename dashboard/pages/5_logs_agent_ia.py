@@ -36,6 +36,15 @@ st.markdown("""
     border: 0.5px solid #21262d;
     border-radius: 10px;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+/* Zone scrollable des lignes de log */
+.log-body {
+    overflow-y: auto;
+    max-height: calc(100vh - 280px);
+    min-height: 300px;
+    scroll-behavior: smooth;
 }
 .log-topbar {
     background: #161b22;
@@ -126,7 +135,7 @@ TAG_PATTERNS = [
     ("PDF",         r'\[pdf\]'),
     ("MINIO",       r'\[minio\]'),
     ("EMAIL",       r'\[email\]|smtp|send_email'),
-    ("REMEDIATION", r'\[remediation\]'),
+    ("KSM",         r'\[ksm\]'),
     ("LOKI",        r'\[loki\]'),
     ("EVENTS",      r'\[events?\]'),
     ("ML",          r'\[(keycloak|postgresql|mongodb|redis|redpanda)\]'),
@@ -137,7 +146,7 @@ TAG_COLORS = {
     "PDF":         ("#1f3a5f", "#79c0ff"),
     "MINIO":       ("#0d3a2e", "#56d364"),
     "EMAIL":       ("#3a1f5f", "#d2a8ff"),
-    "REMEDIATION": ("#3a2a00", "#e3b341"),
+    "KSM":         ("#003a3a", "#00d4d4"),
     "SCHEDULER":   ("#1a2a3a", "#79c0ff"),
     "COLLECTOR":   ("#0d2b1a", "#56d364"),
     "QUEUE":       ("#1c2128", "#8b949e"),
@@ -188,6 +197,23 @@ def detect_tag(low, msg_stripped):
 def detect_level(low, msg_stripped, tag):
     if tag == "SKIP":
         return "skip"
+
+    # ── Contenu RCA/GPT-4 : traité séparément pour éviter les faux ERROR ──
+    # Le texte de l'analyse GPT-4 parle d'erreurs cluster → ne pas confondre
+    # avec une vraie exception système Python.
+    if tag in ("RCA", "GPT-4") or (msg_stripped and msg_stripped[0] in "📛🔍🎯💥🔧🛡️🖥️"):
+        # Seuls traceback/exception/❌ indiquent une vraie erreur de l'agent
+        if re.search(r'traceback|exception|❌', low):
+            return "error"
+        if re.search(r'✅|réussi|généré', low):
+            return "success"
+        if re.search(r'⚡\s*critical', low) or (msg_stripped.startswith("⚡") and "critical" in low):
+            return "critical"
+        if re.search(r'⚠️', low):
+            return "warning"
+        return "rca"
+
+    # ── Lignes système normales ────────────────────────────────────────────
     if re.search(r'✅|réussi|généré|complet|reçue?\s+\(|upload réussi|thread démarré', low):
         return "success"
     if re.search(r'error|erreur|failed|exception|traceback|❌', low):
@@ -198,8 +224,6 @@ def detect_level(low, msg_stripped, tag):
         return "critical"
     if re.search(r'⚠️|warning|attente d\'approbation', low):
         return "warning"
-    if tag in ("RCA",) or (msg_stripped and msg_stripped[0] in "📛🔍🎯💥🔧🛡️🖥️"):
-        return "rca"
     if tag == "CMD" or re.match(r'^\s*\d+\.\s+kubectl|^\s*\$\s+kubectl', msg_stripped, re.I):
         return "cmd"
     return "info"
@@ -273,19 +297,19 @@ def render_row(entry):
         f'</div>'
     )
 
+# ── Valeurs fixes (fichier et tail hardcodés) ─────────────────
+log_path = "agent_ia.log"
+tail_n   = 200
+
 # ── Sidebar (scope principal — ne recharge pas avec le fragment) ──
 with st.sidebar:
-    st.markdown("### ⚙️ Options")
-    log_path = st.text_input("Fichier log", value="agent_ia.log")
-    tail_n   = st.selectbox("Dernières lignes", [50, 100, 200, 500], index=1)
-    st.markdown("---")
-    st.markdown("**Filtres**")
+    st.markdown("### ⚙️ Filtres")
     filter_level = st.multiselect(
         "Niveau",
         ["success", "error", "warning", "anomaly", "critical", "rca", "cmd", "skip", "info"],
         default=["success", "error", "warning", "anomaly", "critical", "rca", "cmd", "info"],
     )
-    all_tags = ["GPT-4","PDF","MINIO","EMAIL","REMEDIATION","SCHEDULER",
+    all_tags = ["GPT-4","PDF","MINIO","EMAIL","KSM","SCHEDULER",
                 "COLLECTOR","QUEUE","WEBHOOK","SKIP","LOKI","EVENTS","INIT","ML","RCA","CMD","LOG"]
     filter_tags = st.multiselect("Tag", all_tags, default=all_tags)
 
@@ -346,7 +370,7 @@ def live_terminal(log_path, filter_level, filter_tags, search, tail_n):
     total_filt = len(entries)
 
     st.markdown(f"""
-    <div class="log-wrap">
+    <div class="log-wrap" id="log-terminal">
       <div class="log-topbar">
         <span class="log-dot" style="background:#f85149;"></span>
         <span class="log-dot" style="background:#e3b341;"></span>
@@ -358,12 +382,20 @@ def live_terminal(log_path, filter_level, filter_tags, search, tail_n):
         <span style="color:#56d364;">● LIVE</span>
         &nbsp;·&nbsp; mis à jour {now_str}
       </div>
-      {rows_html}
+      <div class="log-body" id="log-body">
+        {rows_html}
+      </div>
       <div class="log-footer">
         <span>{shown[0]["ts"]} → {shown[-1]["ts"]}</span>
         <span>tail -{tail_n} · {now_str}</span>
       </div>
     </div>
+    <script>
+      (function() {{
+        var body = document.getElementById('log-body');
+        if (body) body.scrollTop = body.scrollHeight;
+      }})();
+    </script>
     """, unsafe_allow_html=True)
 
 

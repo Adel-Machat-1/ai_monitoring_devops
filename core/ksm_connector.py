@@ -1,7 +1,10 @@
 import time
+import logging
 import requests
 from datetime import datetime, timezone
 from config import KSM_BASE_URL, KSM_EMAIL, KSM_PASSWORD, KSM_ENABLED
+
+logger = logging.getLogger(__name__)
 
 _jwt_token = None
 _token_obtained_at = 0
@@ -22,17 +25,17 @@ def _login():
         response.raise_for_status()
         token = response.json().get("token")
         if not token:
-            print("[KSM] ❌ Réponse login sans token")
+            logger.info("[KSM] ❌ Réponse login sans token")
             return None
         _jwt_token = token
         _token_obtained_at = time.time()
-        print("[KSM] ✅ Authentifié — JWT obtenu")
+        logger.info("[KSM] ✅ Authentifié — JWT obtenu")
         return _jwt_token
     except requests.exceptions.ConnectionError:
-        print(f"[KSM] 🔌 Impossible de joindre {KSM_BASE_URL}")
+        logger.info(f"[KSM] 🔌 Impossible de joindre {KSM_BASE_URL}")
         return None
     except Exception as e:
-        print(f"[KSM] ❌ Échec authentification : {e}")
+        logger.info(f"[KSM] ❌ Échec authentification : {e}")
         return None
 
 
@@ -96,7 +99,7 @@ def send_alarm_to_ksm(parsed, report_url=None, max_retries=3):
     Retourne True si l'envoi a réussi, False sinon.
     """
     if not KSM_ENABLED:
-        print("[KSM] ⏭️ Intégration KSM désactivée (KSM_ENABLED=False)")
+        logger.info("[KSM] ⏭️ Intégration KSM désactivée (KSM_ENABLED=False)")
         return False
 
     # Normaliser triggered_at en ISO 8601 UTC
@@ -111,13 +114,13 @@ def send_alarm_to_ksm(parsed, report_url=None, max_retries=3):
         "report_url":   report_url,
     }
 
-    print(f"\n[KSM] Envoi alarme → {parsed['name']} ({parsed.get('severity','?').upper()})")
-    print(f"[KSM] Description : {payload['description'][:120]}...")
+    logger.info(f"\n[KSM] Envoi alarme → {parsed['name']} ({parsed.get('severity','?').upper()})")
+    logger.info(f"[KSM] Description : {payload['description'][:120]}...")
 
     for attempt in range(1, max_retries + 1):
         token = _get_token()
         if not token:
-            print(f"[KSM] ❌ Aucun token disponible — tentative {attempt}/{max_retries}")
+            logger.info(f"[KSM] ❌ Aucun token disponible — tentative {attempt}/{max_retries}")
             time.sleep(5)
             continue
 
@@ -137,29 +140,29 @@ def send_alarm_to_ksm(parsed, report_url=None, max_retries=3):
             if response.status_code == 401:
                 global _jwt_token
                 _jwt_token = None
-                print("[KSM] 🔄 Token expiré — re-login au prochain essai")
+                logger.info("[KSM] 🔄 Token expiré — re-login au prochain essai")
                 continue
 
             if response.status_code in (200, 201):
-                print(f"[KSM] ✅ Alarme créée dans KSM (HTTP {response.status_code})")
+                logger.info(f"[KSM] ✅ Alarme créée dans KSM (HTTP {response.status_code})")
                 return True
 
-            print(
+            logger.info(
                 f"[KSM] ⚠️ HTTP {response.status_code} — "
                 f"{response.text[:200]}"
             )
 
         except requests.exceptions.Timeout:
-            print(f"[KSM] ⏱️ Timeout — tentative {attempt}/{max_retries}")
+            logger.info(f"[KSM] ⏱️ Timeout — tentative {attempt}/{max_retries}")
         except requests.exceptions.ConnectionError:
-            print(f"[KSM] 🔌 Connexion refusée — tentative {attempt}/{max_retries}")
+            logger.info(f"[KSM] 🔌 Connexion refusée — tentative {attempt}/{max_retries}")
         except Exception as e:
-            print(f"[KSM] ❌ Erreur inattendue : {e}")
+            logger.info(f"[KSM] ❌ Erreur inattendue : {e}")
 
         if attempt < max_retries:
             wait = attempt * 5
-            print(f"[KSM] Attente {wait}s avant retry...")
+            logger.info(f"[KSM] Attente {wait}s avant retry...")
             time.sleep(wait)
 
-    print(f"[KSM] ❌ Alarme non envoyée après {max_retries} tentatives — {parsed['name']}")
+    logger.info(f"[KSM] ❌ Alarme non envoyée après {max_retries} tentatives — {parsed['name']}")
     return False
