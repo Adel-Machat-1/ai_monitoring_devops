@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 import streamlit as st
 import requests
 from datetime import datetime
-from config import SERVICES_ROLES, PROMETHEUS_URL
+from config import SERVICES_ROLES, PROMETHEUS_URL, MINIO_ENDPOINT
 from core.prometheus import get_pods_for_prefix, get_pod_metrics
 
 st.set_page_config(page_title="Services", page_icon="🟢", layout="wide")
@@ -104,13 +104,13 @@ st.sidebar.divider()
 
 try:
     from minio import Minio as _M
-    _M("localhost:9000", access_key="minioadmin", secret_key="minioadmin123", secure=False).list_buckets()
+    _M(MINIO_ENDPOINT, access_key="minioadmin", secret_key="minioadmin123", secure=False).list_buckets()
     st.sidebar.success("✅ MinIO connecté")
 except:
     st.sidebar.error("❌ MinIO déconnecté")
 
 try:
-    if requests.get("http://localhost:9090/-/healthy", timeout=2).status_code == 200:
+    if requests.get(f"{PROMETHEUS_URL}/-/healthy", timeout=2).status_code == 200:
         st.sidebar.success("✅ Prometheus connecté")
     else:
         st.sidebar.error("❌ Prometheus déconnecté")

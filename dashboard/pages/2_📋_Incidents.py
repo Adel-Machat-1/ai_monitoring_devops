@@ -1,7 +1,11 @@
+import os
 import streamlit as st
 from minio import Minio
 from datetime import datetime
 import pandas as pd
+
+PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
 
 st.set_page_config(page_title="Incidents", page_icon="☸️", layout="wide")
 
@@ -72,14 +76,14 @@ st.sidebar.divider()
 
 try:
     from minio import Minio as _M
-    _M("localhost:9000", access_key="minioadmin", secret_key="minioadmin123", secure=False).list_buckets()
+    _M(MINIO_ENDPOINT, access_key="minioadmin", secret_key="minioadmin123", secure=False).list_buckets()
     st.sidebar.success("✅ MinIO connecté")
 except:
     st.sidebar.error("❌ MinIO déconnecté")
 
 try:
     import requests as _r
-    if _r.get("http://localhost:9090/-/healthy", timeout=2).status_code == 200:
+    if _r.get(f"{PROMETHEUS_URL}/-/healthy", timeout=2).status_code == 200:
         st.sidebar.success("✅ Prometheus connecté")
     else:
         st.sidebar.error("❌ Prometheus déconnecté")
@@ -92,7 +96,7 @@ st.sidebar.caption(f"Vérification : {datetime.now().strftime('%H:%M:%S')}")
 # ── MinIO ─────────────────────────────────────────────────────
 @st.cache_resource
 def get_minio_client():
-    return Minio("localhost:9000", access_key="minioadmin",
+    return Minio(MINIO_ENDPOINT, access_key="minioadmin",
                  secret_key="minioadmin123", secure=False)
 
 

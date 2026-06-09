@@ -12,7 +12,7 @@ APP_MAPPING = {
     "redis": "redis", "redpanda": "redpanda", "pgadmin": "pgadmin",
 }
 
-def get_loki_logs(service, namespace="apps", minutes=10):
+def get_loki_logs(service, namespace="int-ksm-backdata", minutes=10):
     try:
         end      = int(time.time() * 1e9)
         start    = int((time.time() - minutes * 60) * 1e9)

@@ -12,7 +12,7 @@ def find_pod_from_prometheus(job):
         if not prefix:
             return None
         result = requests.get(f"{PROMETHEUS_URL}/api/v1/query",
-            params={"query": f'kube_pod_info{{namespace="apps", pod=~"{prefix}.*"}}'}, timeout=5).json()
+            params={"query": f'kube_pod_info{{namespace="int-ksm-backdata", pod=~"{prefix}.*"}}'}, timeout=5).json()
         pods = result.get("data", {}).get("result", [])
         if pods:
             pod_name = pods[0].get("metric", {}).get("pod")
@@ -23,7 +23,7 @@ def find_pod_from_prometheus(job):
         logger.info(f"[PROMETHEUS] Erreur find_pod: {str(e)}")
         return None
 
-def get_pods_for_prefix(prefix, namespace="apps", exclude=None):
+def get_pods_for_prefix(prefix, namespace="int-ksm-backdata", exclude=None):
     exclude = exclude or []
     try:
         r = requests.get(f"{PROMETHEUS_URL}/api/v1/query",

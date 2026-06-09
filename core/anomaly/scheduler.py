@@ -28,7 +28,7 @@ def create_anomaly_alert(app_name, anomaly_info):
         "name":           f"AnomalyDetected_{app_name.capitalize()}",
         "service":        service,
         "job":            f"{app_name}-metrics",
-        "namespace":      "apps",
+        "namespace":      "int-ksm-backdata",
         "severity":       "warning",
         "status":         "firing",
         "description":    f"Anomalie ML détectée sur {app_name} — {anomaly_info['reason']}",
@@ -88,13 +88,13 @@ def run_anomaly_detection(alert_queue):
                     minutes = 60 if app_name == "redis" else 10
                     logs    = get_loki_logs(
                         service=service,
-                        namespace="apps",
+                        namespace="int-ksm-backdata",
                         minutes=minutes
                     )
 
                     events = get_kubernetes_events(
                         pod=service,
-                        namespace="apps"
+                        namespace="int-ksm-backdata"
                     )
 
                     logger.info(f"[SCHEDULER] → Envoi dans queue GPT-4 : {parsed['name']}")

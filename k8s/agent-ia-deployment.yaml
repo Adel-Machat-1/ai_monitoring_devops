@@ -1,0 +1,24 @@
+# k8s/agent-ia-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-ia
+  namespace: int-ksm-back
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-ia
+  template:
+    metadata:
+      labels:
+        app: agent-ia
+    spec:
+      containers:
+        - name: agent-ia
+          image: adelmachat/agent-ia:latest
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: agent-ia-config

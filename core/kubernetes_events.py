@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def get_kubernetes_events(pod=None, namespace="apps", max_events=20):
+def get_kubernetes_events(pod=None, namespace="int-ksm-backdata", max_events=20):
     """
     Récupère les events Kubernetes pour un pod ou namespace
     Fonctionne pour les 2 systèmes : alerte + anomaly detection

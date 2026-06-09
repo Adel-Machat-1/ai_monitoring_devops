@@ -118,13 +118,13 @@ st.sidebar.divider()
 
 try:
     from minio import Minio as _M
-    _M("localhost:9000", access_key="minioadmin", secret_key="minioadmin123", secure=False).list_buckets()
+    _M(os.getenv("MINIO_ENDPOINT", "localhost:9000"), access_key="minioadmin", secret_key="minioadmin123", secure=False).list_buckets()
     st.sidebar.success("✅ MinIO connecté")
 except:
     st.sidebar.error("❌ MinIO déconnecté")
 
 try:
-    if requests.get("http://localhost:9090/-/healthy", timeout=2).status_code == 200:
+    if requests.get(f"{os.getenv('PROMETHEUS_URL', 'http://localhost:9090')}/-/healthy", timeout=2).status_code == 200:
         st.sidebar.success("✅ Prometheus connecté")
     else:
         st.sidebar.error("❌ Prometheus déconnecté")
@@ -135,7 +135,8 @@ st.sidebar.divider()
 st.sidebar.caption(f"Vérification : {datetime.now().strftime('%H:%M:%S')}")
 
 # ── Constantes ────────────────────────────────────────────────
-PROMETHEUS_URL = "http://localhost:9090"
+PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
 MODELS_DIR     = os.path.join(os.path.dirname(__file__), '..', '..', 'models')
 
 APP_COLORS = {
@@ -151,33 +152,33 @@ APPS_FEATURES = {
     "Keycloak": {
         "key": "keycloak",
         "queries": {
-            "cpu":      'sum(rate(container_cpu_usage_seconds_total{pod=~"keycloak.*",namespace="apps",container="keycloak"}[5m]))',
-            "memory":   'sum(container_memory_usage_bytes{pod=~"keycloak.*",namespace="apps",container="keycloak"})',
-            "restarts": 'sum(kube_pod_container_status_restarts_total{pod=~"keycloak.*",namespace="apps"})',
+            "cpu":      'sum(rate(container_cpu_usage_seconds_total{pod=~"keycloak.*",namespace="int-ksm-backdata",container="keycloak"}[5m]))',
+            "memory":   'sum(container_memory_usage_bytes{pod=~"keycloak.*",namespace="int-ksm-backdata",container="keycloak"})',
+            "restarts": 'sum(kube_pod_container_status_restarts_total{pod=~"keycloak.*",namespace="int-ksm-backdata"})',
             "up":       'sum(up{job="keycloak-metrics"})',
         },
     },
     "PostgreSQL": {
         "key": "postgresql",
         "queries": {
-            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"postgresql.*",namespace="apps"}[5m]))',
-            "memory": 'sum(container_memory_usage_bytes{pod=~"postgresql.*",namespace="apps"})',
+            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"postgresql.*",namespace="int-ksm-backdata"}[5m]))',
+            "memory": 'sum(container_memory_usage_bytes{pod=~"postgresql.*",namespace="int-ksm-backdata"})',
             "up":     'sum(up{job="postgresql-primary-metrics"})',
         },
     },
     "MongoDB": {
         "key": "mongodb",
         "queries": {
-            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"mongodb.*",namespace="apps"}[5m]))',
-            "memory": 'sum(container_memory_usage_bytes{pod=~"mongodb.*",namespace="apps"})',
+            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"mongodb.*",namespace="int-ksm-backdata"}[5m]))',
+            "memory": 'sum(container_memory_usage_bytes{pod=~"mongodb.*",namespace="int-ksm-backdata"})',
             "up":     'sum(up{job="mongodb-metrics"})',
         },
     },
     "Redis": {
         "key": "redis",
         "queries": {
-            "cpu":         'sum(rate(container_cpu_usage_seconds_total{pod=~"redis.*",namespace="apps"}[5m]))',
-            "memory":      'sum(container_memory_usage_bytes{pod=~"redis.*",namespace="apps"})',
+            "cpu":         'sum(rate(container_cpu_usage_seconds_total{pod=~"redis.*",namespace="int-ksm-backdata"}[5m]))',
+            "memory":      'sum(container_memory_usage_bytes{pod=~"redis.*",namespace="int-ksm-backdata"})',
             "connections": 'sum(redis_connected_clients)',
             "up":          'sum(up{job="redis-metrics"})',
         },
@@ -185,8 +186,8 @@ APPS_FEATURES = {
     "Redpanda": {
         "key": "redpanda",
         "queries": {
-            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"redpanda.*",namespace="apps"}[5m]))',
-            "memory": 'sum(container_memory_usage_bytes{pod=~"redpanda.*",namespace="apps"})',
+            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"redpanda.*",namespace="int-ksm-backdata"}[5m]))',
+            "memory": 'sum(container_memory_usage_bytes{pod=~"redpanda.*",namespace="int-ksm-backdata"})',
             "up":     'sum(up{job="redpanda"})',
         },
     },
@@ -281,7 +282,7 @@ def get_anomaly_scores():
 def get_anomaly_history():
     """Charge l'historique des anomalies ML depuis MinIO."""
     try:
-        client = Minio("localhost:9000", access_key="minioadmin",
+        client = Minio(MINIO_ENDPOINT, access_key="minioadmin",
                        secret_key="minioadmin123", secure=False)
         rows = []
         for obj in client.list_objects("incident-reports"):
@@ -546,7 +547,7 @@ else:
     st.markdown('<p class="section-title" style="margin-top:8px;">🔍 Dernières anomalies</p>',
                 unsafe_allow_html=True)
 
-    minio_client = Minio("localhost:9000", access_key="minioadmin",
+    minio_client = Minio(MINIO_ENDPOINT, access_key="minioadmin",
                          secret_key="minioadmin123", secure=False)
 
     for _, row in history_df.head(10).iterrows():

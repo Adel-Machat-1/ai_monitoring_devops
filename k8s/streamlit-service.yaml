@@ -1,0 +1,14 @@
+# k8s/streamlit-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: streamlit-service
+  namespace: int-ksm-back
+spec:
+  selector:
+    app: streamlit
+  ports:
+    - port: 8501
+      targetPort: 8501
+      nodePort: 30501
+  type: NodePort

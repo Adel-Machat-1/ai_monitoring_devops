@@ -1,0 +1,13 @@
+# k8s/agent-ia-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-ia-service
+  namespace: int-ksm-back
+spec:
+  selector:
+    app: agent-ia
+  ports:
+    - port: 5000
+      targetPort: 5000
+  type: ClusterIP

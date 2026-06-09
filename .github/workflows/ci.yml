@@ -50,7 +50,7 @@ jobs:
           SKIP_SEVERITIES  = ["info", "none"]
           IGNORED_ALERTS   = ["Watchdog","InfoInhibitor","KubeProxyDown","KubeSchedulerDown","KubeControllerManagerDown","KubeStatefulSetReplicasMismatch","KubePdbNotEnoughHealthyPods","AlertmanagerFailedToSendAlerts","AlertmanagerClusterFailedToSendAlerts","NodeClockNotSynchronising","CPUThrottlingHigh","TargetDown"]
           ALLOWED_ALERTS   = ["PostgresDown","MongoDBDown","RedisDown","RedpandaDown","KeycloakDown","PostgresPodNotRunning","MongoPodNotRunning","RedisPodNotRunning","RedpandaPodNotRunning","KeycloakPodNotRunning","AppCrashLooping","AppDeploymentUnavailable","AppPodNotReady","AnomalyDetected_Postgresql","AnomalyDetected_Mongodb","AnomalyDetected_Redis","AnomalyDetected_Keycloak","AnomalyDetected_Redpanda"]
-          APP_NAMESPACES   = {"postgresql-primary-metrics":"apps","mongodb-metrics":"apps","keycloak-metrics":"apps","redis-metrics":"apps","redpanda":"apps","kube-state-metrics":"apps"}
+          APP_NAMESPACES   = {"postgresql-primary-metrics":"int-ksm-backdata","mongodb-metrics":"int-ksm-backdata","keycloak-metrics":"int-ksm-backdata","redis-metrics":"int-ksm-backdata","redpanda":"int-ksm-backdata","kube-state-metrics":"int-ksm-backdata"}
           APP_POD_PREFIX   = {"postgresql-primary-metrics":"postgresql-primary","mongodb-metrics":"mongodb","keycloak-metrics":"keycloak","redis-metrics":"redis-master","redpanda":"redpanda"}
           EOF
 

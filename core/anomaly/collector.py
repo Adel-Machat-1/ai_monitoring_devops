@@ -9,38 +9,38 @@ logger = logging.getLogger(__name__)
 APPS_METRICS = {
     "keycloak": {
         "metrics": {
-            "cpu":      'sum(rate(container_cpu_usage_seconds_total{pod=~"keycloak.*", namespace="apps", container="keycloak"}[5m]))',
-            "memory":   'sum(container_memory_usage_bytes{pod=~"keycloak.*", namespace="apps", container="keycloak"})',
-            "restarts": 'sum(kube_pod_container_status_restarts_total{pod=~"keycloak.*", namespace="apps"})',
+            "cpu":      'sum(rate(container_cpu_usage_seconds_total{pod=~"keycloak.*", namespace="int-ksm-backdata", container="keycloak"}[5m]))',
+            "memory":   'sum(container_memory_usage_bytes{pod=~"keycloak.*", namespace="int-ksm-backdata", container="keycloak"})',
+            "restarts": 'sum(kube_pod_container_status_restarts_total{pod=~"keycloak.*", namespace="int-ksm-backdata"})',
             "up":       'sum(up{job="keycloak-metrics"})',
         }
     },
     "postgresql": {
         "metrics": {
-            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"postgresql.*", namespace="apps"}[5m]))',
-            "memory": 'sum(container_memory_usage_bytes{pod=~"postgresql.*", namespace="apps"})',
+            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"postgresql.*", namespace="int-ksm-backdata"}[5m]))',
+            "memory": 'sum(container_memory_usage_bytes{pod=~"postgresql.*", namespace="int-ksm-backdata"})',
             "up":     'sum(up{job="postgresql-primary-metrics"})',
         }
     },
     "mongodb": {
         "metrics": {
-            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"mongodb.*", namespace="apps"}[5m]))',
-            "memory": 'sum(container_memory_usage_bytes{pod=~"mongodb.*", namespace="apps"})',
+            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"mongodb.*", namespace="int-ksm-backdata"}[5m]))',
+            "memory": 'sum(container_memory_usage_bytes{pod=~"mongodb.*", namespace="int-ksm-backdata"})',
             "up":     'sum(up{job="mongodb-metrics"})',
         }
     },
     "redis": {
         "metrics": {
-            "cpu":         'sum(rate(container_cpu_usage_seconds_total{pod=~"redis.*", namespace="apps"}[5m]))',
-            "memory":      'sum(container_memory_usage_bytes{pod=~"redis.*", namespace="apps"})',
+            "cpu":         'sum(rate(container_cpu_usage_seconds_total{pod=~"redis.*", namespace="int-ksm-backdata"}[5m]))',
+            "memory":      'sum(container_memory_usage_bytes{pod=~"redis.*", namespace="int-ksm-backdata"})',
             "connections": 'sum(redis_connected_clients)',
             "up":          'sum(up{job="redis-metrics"})',
         }
     },
     "redpanda": {
         "metrics": {
-            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"redpanda.*", namespace="apps"}[5m]))',
-            "memory": 'sum(container_memory_usage_bytes{pod=~"redpanda.*", namespace="apps"})',
+            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"redpanda.*", namespace="int-ksm-backdata"}[5m]))',
+            "memory": 'sum(container_memory_usage_bytes{pod=~"redpanda.*", namespace="int-ksm-backdata"})',
             "up":     'sum(up{job="redpanda"})',
         }
     },
