@@ -1,11 +1,13 @@
-# k8s/agent-ia-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: agent-ia-config
   namespace: int-ksm-back
 data:
-  PROMETHEUS_URL: "http://prometheus-server.int-ksm-backdata.svc.cluster.local:9090"
+  PROMETHEUS_URL: "http://prometheus-server.int-ksm-backdata.svc.cluster.local:80"
   LOKI_URL: "http://loki.int-ksm-backdata.svc.cluster.local:3100"
-  MINIO_ENDPOINT: "int-ksm-backdata-minio.int-ksm-backdata.svc.cluster.local:9000"
-  KSM_BASE_URL: "http://ksm-back-service.int-ksm-back.svc.cluster.local:80"
+  MINIO_ENDPOINT: "142.44.143.95:31511"
+  MINIO_ACCESS_KEY: "minioadmin"
+  MINIO_SECRET_KEY: "minioadmin"
+  KSM_BASE_URL: "https://ksm.qualif.omniflowcx.com"
+  AGENT_URL: "http://agent-ia-service.int-ksm-back.svc.cluster.local:5000"

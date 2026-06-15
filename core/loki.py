@@ -24,7 +24,13 @@ def get_loki_logs(service, namespace="int-ksm-backdata", minutes=10):
             f'{{app="{app_label}", namespace="{namespace}"}}',
             f'{{app="{service}", namespace="{namespace}"}}',
             f'{{namespace="{namespace}", app=~"{app_name}.*"}}',
+            f'{{filename=~"/var/log/pods/{namespace}_{app_label}.*/.*.log"}}',
+            f'{{filename=~"/var/log/pods/{namespace}_{app_name}.*/.*.log"}}',
         ]:
+
+
+
+
             result  = requests.get(f"{LOKI_URL}/loki/api/v1/query_range",
                 params={"query": query, "start": start, "end": end, "limit": 50}, timeout=5).json()
             streams = result.get("data", {}).get("result", [])

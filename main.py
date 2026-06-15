@@ -21,6 +21,8 @@ from reports.minio_uploader import upload_to_minio
 import logging
 
 
+
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -427,28 +429,45 @@ def health():
         # "pending_remediations": len(pending_remediations),
     }
 
-#@app.route('/api/services', methods=['GET'])
-#def get_services():
-    result = []
+@app.route('/api/services')
+def get_services():
+    from core.prometheus import get_pods_for_prefix, get_pod_metrics, _q
+    services = []
     for svc in SERVICES_ROLES:
-        try:
-            r   = requests.get(f"{PROMETHEUS_URL}/api/v1/query",
-                               params={"query": f'sum(up{{job="{svc["job"]}"}})'}, timeout=5).json()
-            res = r.get("data", {}).get("result", [])
-            service_up = bool(res and float(res[0]["value"][1]) > 0)
-        except Exception:
-            service_up = False
-
+        is_up = _q(f'sum(up{{job="{svc["job"]}"}})') > 0
         roles_data = []
         for role_cfg in svc["roles"]:
             pods = get_pods_for_prefix(role_cfg["prefix"], exclude=role_cfg.get("exclude", []))
-            pods_data = [{"pod": pod, **get_pod_metrics(pod)} for pod in pods]
+            pods_data = []
+            for pod in pods:
+                metrics = get_pod_metrics(pod)
+                pods_data.append({
+                    "pod": pod,
+                    "cpu": metrics["cpu"],
+                    "memory_mb": metrics["memory_mb"],
+                    "restarts": metrics["restarts"],
+                })
             if pods_data:
                 roles_data.append({"role": role_cfg["role"], "pods": pods_data})
+        services.append({"name": svc["name"], "up": bool(is_up), "roles": roles_data})
+    return jsonify({"services": services, "updated_at": datetime.now().isoformat()})
 
-        result.append({"name": svc["name"], "up": service_up, "roles": roles_data})
 
-    return jsonify({"services": result, "updated_at": datetime.now().isoformat()})
+
+@app.route('/logs')
+def get_logs():
+    try:
+        with open('agent_ia.log', 'r', encoding='utf-8', errors='replace') as f:
+            return f.read(), 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    except:
+        return "", 200
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     logger.info("[DÉMARRAGE] http://localhost:5000")

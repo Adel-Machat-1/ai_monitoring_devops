@@ -89,7 +89,7 @@ def _build_description(parsed):
     )
     if detail:
         desc += f". {detail}"
-    return desc.strip()
+    return desc.strip()[:250] 
 
 
 def send_alarm_to_ksm(parsed, report_url=None, max_retries=3):
@@ -108,11 +108,11 @@ def send_alarm_to_ksm(parsed, report_url=None, max_retries=3):
         triggered_at = datetime.now(timezone.utc).isoformat()
 
     payload = {
-        "description":  _build_description(parsed),
-        "type":         _build_type(parsed),
+        "description":  _build_description(parsed)[:250],
+        "type":         _build_type(parsed)[:100],
         "triggered_at": triggered_at,
-        "report_url":   report_url,
-    }
+        "report_url":   report_url[:500] if report_url else None,
+        }
 
     logger.info(f"\n[KSM] Envoi alarme → {parsed['name']} ({parsed.get('severity','?').upper()})")
     logger.info(f"[KSM] Description : {payload['description'][:120]}...")

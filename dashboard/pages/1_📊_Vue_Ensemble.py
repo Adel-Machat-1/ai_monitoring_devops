@@ -103,10 +103,10 @@ st.sidebar.divider()
 
 try:
     from minio import Minio as _M
-    _M(MINIO_ENDPOINT, access_key="minioadmin", secret_key="minioadmin123", secure=False).list_buckets()
+    _M(MINIO_ENDPOINT, access_key="minioadmin", secret_key="minioadmin", secure=False, region="us-east-1").list_buckets()
     st.sidebar.success("✅ MinIO connecté")
-except:
-    st.sidebar.error("❌ MinIO déconnecté")
+except Exception as e:
+    st.sidebar.error(f"❌ MinIO déconnecté: {e}")
 
 try:
     if requests.get(f"{PROMETHEUS_URL}/-/healthy", timeout=2).status_code == 200:
@@ -121,9 +121,11 @@ st.sidebar.caption(f"Dernière vérification : {datetime.now().strftime('%H:%M:%
 
 # ── Data functions ────────────────────────────────────────────
 @st.cache_resource
+
 def get_minio_client():
-    return Minio(MINIO_ENDPOINT, access_key="minioadmin",
-                 secret_key="minioadmin123", secure=False)
+    endpoint = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+    return Minio(endpoint, access_key="minioadmin",
+                 secret_key="minioadmin", secure=False)
 
 @st.cache_data(ttl=30)
 def load_reports():
@@ -158,17 +160,16 @@ def load_reports():
         return df.sort_values("datetime", ascending=False) if not df.empty else df
     except Exception as e:
         return pd.DataFrame()
-
 @st.cache_data(ttl=30)
 def get_agent_health():
     try:
-        r = requests.get("http://localhost:5000/health", timeout=3)
+        AGENT_URL = os.getenv("AGENT_URL", "http://localhost:5000")
+        r = requests.get(f"{AGENT_URL}/health", timeout=3)
         if r.status_code == 200:
             return r.json(), True
     except:
         pass
     return {}, False
-
 
 # ══════════════════════════════════════════════════════════════
 # HEADER

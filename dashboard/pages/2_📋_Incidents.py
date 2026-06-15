@@ -76,7 +76,7 @@ st.sidebar.divider()
 
 try:
     from minio import Minio as _M
-    _M(MINIO_ENDPOINT, access_key="minioadmin", secret_key="minioadmin123", secure=False).list_buckets()
+    _M(MINIO_ENDPOINT, access_key="minioadmin", secret_key="minioadmin", secure=False).list_buckets()
     st.sidebar.success("✅ MinIO connecté")
 except:
     st.sidebar.error("❌ MinIO déconnecté")
@@ -97,7 +97,7 @@ st.sidebar.caption(f"Vérification : {datetime.now().strftime('%H:%M:%S')}")
 @st.cache_resource
 def get_minio_client():
     return Minio(MINIO_ENDPOINT, access_key="minioadmin",
-                 secret_key="minioadmin123", secure=False)
+                 secret_key="minioadmin", secure=False)
 
 
 @st.cache_data(ttl=30)
