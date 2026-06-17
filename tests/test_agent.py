@@ -140,14 +140,14 @@ def test_extract_metrics_empty():
     from utils.extractors import extract_metrics_summary
     result = extract_metrics_summary({})
     assert result["up"] == "0 (down)"
-    assert result["restarts"] == "N/A"
+    assert result["restarts"] == "0"
 
 # ══════════════════════════════════════════════════════════════
 # TEST 5 — ANOMALY DETECTION CONFIG
 # ══════════════════════════════════════════════════════════════
 def test_anomaly_detector_params():
     from core.anomaly.detector import MIN_ANOMALY_SCORE, CONTAMINATION
-    assert MIN_ANOMALY_SCORE == 0.65
+    assert MIN_ANOMALY_SCORE == 0.7
     assert CONTAMINATION == 0.03
 
 def test_anomaly_collector_apps():
@@ -162,7 +162,7 @@ def test_anomaly_scheduler_mapping():
     from core.anomaly.scheduler import SERVICE_MAPPING
     assert "keycloak" in SERVICE_MAPPING
     assert SERVICE_MAPPING["redis"] == "redis-master-0"
-    assert SERVICE_MAPPING["postgresql"] == "postgresql-primary-0"
+    assert SERVICE_MAPPING["postgresql"] == "postgresql-0"
 
 # ══════════════════════════════════════════════════════════════
 # TEST 6 — ANOMALY COLLECTOR (avec mock)
@@ -214,35 +214,3 @@ def test_anomaly_collector_query_error():
         result = query_prometheus("up")
         assert result == 0.0
 
-# ══════════════════════════════════════════════════════════════
-# # TEST 7 — AUTO REMEDIATION — COMMENTÉ
-# ══════════════════════════════════════════════════════════════
-# def test_is_safe_command_kubectl_get():
-#     """Test commande safe kubectl get"""
-#     from core.auto_remediation import is_safe_command
-#     assert is_safe_command("kubectl get pods -n int-ksm-backdata") == True
-#
-# def test_is_safe_command_kubectl_logs():
-#     """Test commande safe kubectl logs"""
-#     from core.auto_remediation import is_safe_command
-#     assert is_safe_command("kubectl logs postgresql-primary-0 -n int-ksm-backdata") == True
-#
-# def test_is_safe_command_kubectl_restart():
-#     """Test commande restart safe"""
-#     from core.auto_remediation import is_safe_command
-#     assert is_safe_command("kubectl rollout restart statefulset/postgresql -n int-ksm-backdata") == True
-#
-# def test_is_safe_command_kubectl_delete_namespace():
-#     """Test commande dangereuse bloquée"""
-#     from core.auto_remediation import is_safe_command
-#     assert is_safe_command("kubectl delete namespace apps") == False
-#
-# def test_is_safe_command_rm():
-#     """Test commande rm dangereuse"""
-#     from core.auto_remediation import is_safe_command
-#     assert is_safe_command("rm -rf /") == False
-#
-# def test_is_safe_command_kubectl_delete_deployment():
-#     """Test delete deployment bloqué"""
-#     from core.auto_remediation import is_safe_command
-#     assert is_safe_command("kubectl delete deployment agent-ia") == False
