@@ -27,18 +27,18 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Create config for build
+      - name: Create test config
         run: |
           cat > config.py << 'EOF'
           PROMETHEUS_URL   = "http://localhost:9090"
           LOKI_URL         = "http://localhost:3100"
-          GITHUB_TOKEN     = "placeholder_token"
+          GITHUB_TOKEN     = "test_token"
           GMAIL_HOST       = "smtp.gmail.com"
           GMAIL_PORT       = 587
-          GMAIL_USERNAME   = "placeholder@gmail.com"
-          GMAIL_PASSWORD   = "placeholder_password"
-          EMAIL_FROM       = "placeholder@gmail.com"
-          EMAIL_TO         = "placeholder@gmail.com"
+          GMAIL_USERNAME   = "test@gmail.com"
+          GMAIL_PASSWORD   = "test_password"
+          EMAIL_FROM       = "test@gmail.com"
+          EMAIL_TO         = "test@gmail.com"
       
           MINIO_ENDPOINT   = "localhost:9000"
           MINIO_ACCESS_KEY = "minioadmin"
@@ -46,7 +46,7 @@ jobs:
           MINIO_BUCKET     = "incident-reports"
           MINIO_SECURE     = False
           MODELS           = ["gpt-4o-mini", "gpt-4o"]
-          DEDUP_WINDOW     = 1800
+          DEDUP_WINDOW     = 300
           SKIP_SEVERITIES  = ["info", "none"]
           IGNORED_ALERTS   = ["Watchdog","InfoInhibitor","KubeProxyDown","KubeSchedulerDown","KubeControllerManagerDown","KubeStatefulSetReplicasMismatch","KubePdbNotEnoughHealthyPods","AlertmanagerFailedToSendAlerts","AlertmanagerClusterFailedToSendAlerts","NodeClockNotSynchronising","CPUThrottlingHigh","TargetDown"]
           ALLOWED_ALERTS   = ["PostgresDown","MongoDBDown","RedisDown","RedpandaDown","KeycloakDown","PostgresPodNotRunning","MongoPodNotRunning","RedisPodNotRunning","RedpandaPodNotRunning","KeycloakPodNotRunning","AppCrashLooping","AppDeploymentUnavailable","AppPodNotReady","AnomalyDetected_Postgresql","AnomalyDetected_Mongodb","AnomalyDetected_Redis","AnomalyDetected_Keycloak","AnomalyDetected_Redpanda"]
@@ -77,6 +77,33 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Create config.py for Docker build
+        run: |
+          cat > config.py << 'EOF'
+          PROMETHEUS_URL   = "http://localhost:9090"
+          LOKI_URL         = "http://localhost:3100"
+          GITHUB_TOKEN     = "placeholder_token"
+          GMAIL_HOST       = "smtp.gmail.com"
+          GMAIL_PORT       = 587
+          GMAIL_USERNAME   = "placeholder@gmail.com"
+          GMAIL_PASSWORD   = "placeholder_password"
+          EMAIL_FROM       = "placeholder@gmail.com"
+          EMAIL_TO         = "placeholder@gmail.com"
+      
+          MINIO_ENDPOINT   = "localhost:9000"
+          MINIO_ACCESS_KEY = "minioadmin"
+          MINIO_SECRET_KEY = "minioadmin123"
+          MINIO_BUCKET     = "incident-reports"
+          MINIO_SECURE     = False
+          MODELS           = ["gpt-4o-mini", "gpt-4o"]
+          DEDUP_WINDOW     = 1800
+          SKIP_SEVERITIES  = ["info", "none"]
+          IGNORED_ALERTS   = ["Watchdog","InfoInhibitor","KubeProxyDown","KubeSchedulerDown","KubeControllerManagerDown","KubeStatefulSetReplicasMismatch","KubePdbNotEnoughHealthyPods","AlertmanagerFailedToSendAlerts","AlertmanagerClusterFailedToSendAlerts","NodeClockNotSynchronising","CPUThrottlingHigh","TargetDown"]
+          ALLOWED_ALERTS   = ["PostgresDown","MongoDBDown","RedisDown","RedpandaDown","KeycloakDown","PostgresPodNotRunning","MongoPodNotRunning","RedisPodNotRunning","RedpandaPodNotRunning","KeycloakPodNotRunning","AppCrashLooping","AppDeploymentUnavailable","AppPodNotReady","AnomalyDetected_Postgresql","AnomalyDetected_Mongodb","AnomalyDetected_Redis","AnomalyDetected_Keycloak","AnomalyDetected_Redpanda"]
+          APP_NAMESPACES   = {"postgresql-primary-metrics":"int-ksm-backdata","mongodb-metrics":"int-ksm-backdata","keycloak-metrics":"int-ksm-backdata","redis-metrics":"int-ksm-backdata","redpanda":"int-ksm-backdata","kube-state-metrics":"int-ksm-backdata"}
+          APP_POD_PREFIX   = {"postgresql-primary-metrics":"postgresql-primary","mongodb-metrics":"mongodb","keycloak-metrics":"keycloak","redis-metrics":"redis-master","redpanda":"redpanda"}
+          EOF
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
