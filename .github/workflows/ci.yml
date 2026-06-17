@@ -50,7 +50,7 @@ jobs:
           SKIP_SEVERITIES  = ["info", "none"]
           IGNORED_ALERTS   = ["Watchdog","InfoInhibitor","KubeProxyDown","KubeSchedulerDown","KubeControllerManagerDown","KubeStatefulSetReplicasMismatch","KubePdbNotEnoughHealthyPods","AlertmanagerFailedToSendAlerts","AlertmanagerClusterFailedToSendAlerts","NodeClockNotSynchronising","CPUThrottlingHigh","TargetDown"]
           ALLOWED_ALERTS   = ["PostgresDown","MongoDBDown","RedisDown","RedpandaDown","KeycloakDown","PostgresPodNotRunning","MongoPodNotRunning","RedisPodNotRunning","RedpandaPodNotRunning","KeycloakPodNotRunning","AppCrashLooping","AppDeploymentUnavailable","AppPodNotReady","AnomalyDetected_Postgresql","AnomalyDetected_Mongodb","AnomalyDetected_Redis","AnomalyDetected_Keycloak","AnomalyDetected_Redpanda"]
-          APP_NAMESPACES   = {"postgresql-primary-metrics":"apps","mongodb-metrics":"apps","keycloak-metrics":"apps","redis-metrics":"apps","redpanda":"apps","kube-state-metrics":"apps"}
+          APP_NAMESPACES   = {"postgresql-primary-metrics":"int-ksm-backdata","mongodb-metrics":"int-ksm-backdata","keycloak-metrics":"int-ksm-backdata","redis-metrics":"int-ksm-backdata","redpanda":"int-ksm-backdata","kube-state-metrics":"int-ksm-backdata"}
           APP_POD_PREFIX   = {"postgresql-primary-metrics":"postgresql-primary","mongodb-metrics":"mongodb","keycloak-metrics":"keycloak","redis-metrics":"redis-master","redpanda":"redpanda"}
           EOF
 
@@ -143,3 +143,38 @@ jobs:
         with:
           name: trivy-security-report
           path: trivy-results.json
+
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: security
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Restart agent-ia deployment
+        run: |
+          kubectl rollout restart deployment/agent-ia -n int-ksm-back
+          kubectl rollout status deployment/agent-ia -n int-ksm-back --timeout=180s
+
+      - name: Restart streamlit deployment
+        run: |
+          kubectl rollout restart deployment/streamlit -n int-ksm-back
+          kubectl rollout status deployment/streamlit -n int-ksm-back --timeout=180s
+
+      - name: Deploy summary
+        run: |
+          echo "## ✅ Déploiement réussi" >> $GITHUB_STEP_SUMMARY
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pods" >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n int-ksm-back -l app=agent-ia >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n int-ksm-back -l app=streamlit >> $GITHUB_STEP_SUMMARY

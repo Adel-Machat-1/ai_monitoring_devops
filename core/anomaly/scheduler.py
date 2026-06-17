@@ -3,23 +3,23 @@ import time
 from datetime import datetime
 from core.anomaly.collector import collect_all_metrics
 from core.anomaly.detector import process_collected_metrics
-from core.kubernetes_events import get_kubernetes_events   # ← AJOUT
+from core.kubernetes_events import get_kubernetes_events
 
 import logging
 logger = logging.getLogger(__name__)
 
 
-INTERVAL = 300  
+INTERVAL = 60
 
-anomaly_dedup    = {}
-ANOMALY_DEDUP_WINDOW = 1800 
+anomaly_dedup        = {}
+ANOMALY_DEDUP_WINDOW = 1800
 
 SERVICE_MAPPING = {
     "keycloak":   "keycloak-0",
-    "postgresql": "postgresql-primary-0",
+    "postgresql": "postgresql-0",
     "mongodb":    "mongodb-0",
     "redis":      "redis-master-0",
-    "redpanda":   "redpanda-0",
+    "redpanda":   "redpanda-744b7f9cdd-rx2d8",
 }
 
 def create_anomaly_alert(app_name, anomaly_info):
@@ -28,7 +28,7 @@ def create_anomaly_alert(app_name, anomaly_info):
         "name":           f"AnomalyDetected_{app_name.capitalize()}",
         "service":        service,
         "job":            f"{app_name}-metrics",
-        "namespace":      "apps",
+        "namespace":      "int-ksm-backdata",
         "severity":       "warning",
         "status":         "firing",
         "description":    f"Anomalie ML détectée sur {app_name} — {anomaly_info['reason']}",
@@ -41,6 +41,21 @@ def create_anomaly_alert(app_name, anomaly_info):
         "source":         "anomaly_detection",
         "anomaly_score":  anomaly_info['score'],
         "raw_metrics":    anomaly_info['metrics'],
+    }
+
+def build_metrics_from_anomaly(anomaly, service):
+    """Construit le dict metrics depuis les métriques collectées par le ML"""
+    raw = anomaly.get('metrics', {})
+    cpu    = raw.get('cpu', 0.0)
+    memory = raw.get('memory', 0.0)
+    up     = raw.get('up', 1.0)
+
+    return {
+        "up_status": {"data": {"result": [{"value": [0, str(up)]}]}},
+        "cpu":       {"data": {"result": [{"value": [0, str(cpu)]}]}},
+        "memory":    {"data": {"result": [{"value": [0, str(memory)]}]}},
+        "restarts":  {"data": {"result": [{"value": [0, "0"]}]}},
+        "pod_used":  service,
     }
 
 def run_anomaly_detection(alert_queue):
@@ -74,27 +89,24 @@ def run_anomaly_detection(alert_queue):
                     # ── Marquer comme envoyé ──────────────────
                     anomaly_dedup[app_name] = now
 
-                    from core.prometheus import get_prometheus_metrics
                     from core.loki import get_loki_logs
 
                     parsed  = create_anomaly_alert(app_name, anomaly)
                     service = SERVICE_MAPPING.get(app_name, app_name)
 
-                    metrics = get_prometheus_metrics(
-                        job=f"{app_name}-metrics",
-                        pod=service
-                    )
+                    # ── Métriques directement depuis le collector ML ──
+                    metrics = build_metrics_from_anomaly(anomaly, service)
 
                     minutes = 60 if app_name == "redis" else 10
                     logs    = get_loki_logs(
                         service=service,
-                        namespace="apps",
+                        namespace="int-ksm-backdata",
                         minutes=minutes
                     )
 
                     events = get_kubernetes_events(
                         pod=service,
-                        namespace="apps"
+                        namespace="int-ksm-backdata"
                     )
 
                     logger.info(f"[SCHEDULER] → Envoi dans queue GPT-4 : {parsed['name']}")

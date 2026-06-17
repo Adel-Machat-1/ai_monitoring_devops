@@ -1,4 +1,5 @@
 import os
+import io
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
@@ -9,40 +10,93 @@ from datetime import datetime
 import logging
 logger = logging.getLogger(__name__)
 
+# ── MinIO ─────────────────────────────────────────────────────
+from config import MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY
+from minio import Minio
+from minio.error import S3Error
 
-# Dossier pour sauvegarder les modèles entraînés
+MINIO_BUCKET_MODELS = "ml-models"
+
+def _get_minio():
+    return Minio(
+        MINIO_ENDPOINT,
+        access_key=MINIO_ACCESS_KEY,
+        secret_key=MINIO_SECRET_KEY,
+        secure=False
+    )
+
+def _ensure_bucket():
+    try:
+        client = _get_minio()
+        if not client.bucket_exists(MINIO_BUCKET_MODELS):
+            client.make_bucket(MINIO_BUCKET_MODELS)
+            logger.info(f"[DETECTOR] Bucket {MINIO_BUCKET_MODELS} créé")
+    except Exception as e:
+        logger.warning(f"[DETECTOR] Erreur bucket MinIO: {e}")
+
+# ── Dossier local pour cache ───────────────────────────────────
 MODELS_DIR = "models"
 os.makedirs(MODELS_DIR, exist_ok=True)
 
-# Historique des métriques collectées (en mémoire)
+# ── Historique des métriques ───────────────────────────────────
 metrics_history = {app: [] for app in ["keycloak", "postgresql", "mongodb", "redis", "redpanda"]}
 
-# Nombre minimum de points pour entraîner le modèle
-MIN_TRAINING_POINTS = 5  # ~50 minutes de données (10 x 5min)
+MIN_TRAINING_POINTS = 10
+CONTAMINATION       = 0.03
+MIN_ANOMALY_SCORE   = 0.70
 
-# Seuil de contamination (% attendu d'anomalies)
-CONTAMINATION = 0.03  # 3%
 
 def add_to_history(app_name, metrics_data):
-    """Ajoute les métriques dans l'historique"""
     metrics_history[app_name].append(metrics_data)
-
-    # Garder seulement les 500 derniers points (~42 heures)
     if len(metrics_history[app_name]) > 500:
         metrics_history[app_name] = metrics_history[app_name][-500:]
 
+
 def get_features(app_name):
-    """Retourne les métriques sous forme de tableau numpy"""
     history = metrics_history[app_name]
     if not history:
         return None
-
     df = pd.DataFrame(history)
     df = df.fillna(0)
     return df.values
 
+
+def _save_to_minio(app_name, filename):
+    """Sauvegarde un fichier .pkl local vers MinIO"""
+    try:
+        client     = _get_minio()
+        local_path = f"{MODELS_DIR}/{filename}"
+        object_name = f"{app_name}/{filename}"
+
+        client.fput_object(MINIO_BUCKET_MODELS, object_name, local_path)
+        logger.info(f"[DETECTOR] ✅ Modèle sauvegardé dans MinIO : {object_name}")
+    except Exception as e:
+        logger.warning(f"[DETECTOR] ⚠️ Erreur sauvegarde MinIO {filename}: {e}")
+
+
+def _load_from_minio(app_name, filename):
+    """Charge un fichier .pkl depuis MinIO vers le cache local"""
+    try:
+        client      = _get_minio()
+        local_path  = f"{MODELS_DIR}/{filename}"
+        object_name = f"{app_name}/{filename}"
+
+        client.fget_object(MINIO_BUCKET_MODELS, object_name, local_path)
+        logger.info(f"[DETECTOR] ✅ Modèle chargé depuis MinIO : {object_name}")
+        return True
+    except S3Error as e:
+        if e.code == "NoSuchKey":
+            logger.info(f"[DETECTOR] Modèle non trouvé dans MinIO : {app_name}/{filename}")
+        else:
+            logger.warning(f"[DETECTOR] ⚠️ Erreur MinIO {filename}: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"[DETECTOR] ⚠️ Erreur chargement MinIO {filename}: {e}")
+        return False
+
+
 def train_model(app_name):
-    """Entraîne le modèle Isolation Forest pour une app"""
+    """Entraîne le modèle Isolation Forest et sauvegarde dans MinIO"""
     features = get_features(app_name)
 
     if features is None or len(features) < MIN_TRAINING_POINTS:
@@ -51,11 +105,9 @@ def train_model(app_name):
 
     logger.info(f"[DETECTOR] Entraînement du modèle pour {app_name} ({len(features)} points)...")
 
-    # Normalisation
-    scaler = StandardScaler()
+    scaler          = StandardScaler()
     features_scaled = scaler.fit_transform(features)
 
-    # Entraînement Isolation Forest
     model = IsolationForest(
         contamination=CONTAMINATION,
         random_state=42,
@@ -63,32 +115,44 @@ def train_model(app_name):
     )
     model.fit(features_scaled)
 
-    # Sauvegarder le modèle et le scaler
+    # Sauvegarder localement
     joblib.dump(model,  f"{MODELS_DIR}/{app_name}_model.pkl")
     joblib.dump(scaler, f"{MODELS_DIR}/{app_name}_scaler.pkl")
+
+    # Sauvegarder dans MinIO
+    _ensure_bucket()
+    _save_to_minio(app_name, f"{app_name}_model.pkl")
+    _save_to_minio(app_name, f"{app_name}_scaler.pkl")
 
     logger.info(f"[DETECTOR] ✅ Modèle {app_name} entraîné et sauvegardé")
     return model
 
+
 def load_model(app_name):
-    """Charge un modèle sauvegardé"""
+    """Charge un modèle — depuis cache local ou MinIO"""
     model_path  = f"{MODELS_DIR}/{app_name}_model.pkl"
     scaler_path = f"{MODELS_DIR}/{app_name}_scaler.pkl"
 
-    if not os.path.exists(model_path):
-        return None, None
+    # 1. Cache local
+    if os.path.exists(model_path) and os.path.exists(scaler_path):
+        model  = joblib.load(model_path)
+        scaler = joblib.load(scaler_path)
+        return model, scaler
 
-    model  = joblib.load(model_path)
-    scaler = joblib.load(scaler_path)
-    return model, scaler
+    # 2. MinIO fallback
+    logger.info(f"[DETECTOR] Chargement depuis MinIO pour {app_name}...")
+    model_ok  = _load_from_minio(app_name, f"{app_name}_model.pkl")
+    scaler_ok = _load_from_minio(app_name, f"{app_name}_scaler.pkl")
 
-# Seuil minimum pour déclencher une alerte
-MIN_ANOMALY_SCORE = 0.55
+    if model_ok and scaler_ok:
+        model  = joblib.load(model_path)
+        scaler = joblib.load(scaler_path)
+        return model, scaler
+
+    return None, None
+
 
 def detect_anomaly(app_name, current_metrics):
-    """Détecte si les métriques actuelles sont anormales"""
-
-    # Charger ou entraîner le modèle
     model, scaler = load_model(app_name)
 
     if model is None:
@@ -98,22 +162,14 @@ def detect_anomaly(app_name, current_metrics):
         _, scaler = load_model(app_name)
 
     try:
-        # Préparer les features
         features        = np.array(list(current_metrics.values())).reshape(1, -1)
         features_scaled = scaler.transform(features)
 
-        # Prédiction : -1 = anomalie, 1 = normal
-        prediction = model.predict(features_scaled)[0]
-
-        # Score d'anomalie (plus négatif = plus anormal)
-        score = model.score_samples(features_scaled)[0]
-
-        # Normaliser le score entre 0 et 1
+        prediction    = model.predict(features_scaled)[0]
+        score         = model.score_samples(features_scaled)[0]
         anomaly_score = max(0.0, min(1.0, -score))
+        is_anomaly    = prediction == -1
 
-        is_anomaly = prediction == -1
-
-        # ── Filtre seuil minimum ──────────────────────────────
         if is_anomaly and anomaly_score < MIN_ANOMALY_SCORE:
             logger.info(f"  [{app_name}] Score {anomaly_score:.2f} < {MIN_ANOMALY_SCORE} → faux positif ignoré")
             is_anomaly = False
@@ -128,9 +184,9 @@ def detect_anomaly(app_name, current_metrics):
     except Exception as e:
         logger.info(f"[DETECTOR] Erreur détection {app_name}: {str(e)}")
         return False, 0.0, str(e)
-    
+
+
 def process_collected_metrics(all_metrics):
-    """Traite les métriques collectées et retourne les anomalies"""
     anomalies = []
 
     for app_name in ["keycloak", "postgresql", "mongodb", "redis", "redpanda"]:
@@ -138,10 +194,7 @@ def process_collected_metrics(all_metrics):
         if not app_metrics:
             continue
 
-        # Ajouter à l'historique
         add_to_history(app_name, app_metrics)
-
-        # Détecter l'anomalie
         is_anomaly, score, reason = detect_anomaly(app_name, app_metrics)
 
         status = "🔴 ANOMALIE" if is_anomaly else "✅ Normal"

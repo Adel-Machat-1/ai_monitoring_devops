@@ -34,7 +34,7 @@ def test_parse_alert_keycloak():
                 "alertname": "KeycloakDown",
                 "severity": "critical",
                 "job": "keycloak-metrics",
-                "namespace": "apps"
+                "namespace": "int-ksm-backdata"
             },
             "status": "firing",
             "startsAt": "2026-04-10T10:00:00Z",
@@ -48,7 +48,7 @@ def test_parse_alert_keycloak():
     assert result is not None
     assert result["name"] == "KeycloakDown"
     assert result["severity"] == "critical"
-    assert result["namespace"] == "apps"
+    assert result["namespace"] == "int-ksm-backdata"
 
 def test_parse_alert_postgresql():
     from core.parser import parse_alert
@@ -66,7 +66,7 @@ def test_parse_alert_postgresql():
     }
     result = parse_alert(fake_alert)
     assert result["name"] == "PostgresDown"
-    assert result["namespace"] == "apps"
+    assert result["namespace"] == "int-ksm-backdata"
 
 def test_parse_alert_empty():
     from core.parser import parse_alert
@@ -220,17 +220,17 @@ def test_anomaly_collector_query_error():
 # def test_is_safe_command_kubectl_get():
 #     """Test commande safe kubectl get"""
 #     from core.auto_remediation import is_safe_command
-#     assert is_safe_command("kubectl get pods -n apps") == True
+#     assert is_safe_command("kubectl get pods -n int-ksm-backdata") == True
 #
 # def test_is_safe_command_kubectl_logs():
 #     """Test commande safe kubectl logs"""
 #     from core.auto_remediation import is_safe_command
-#     assert is_safe_command("kubectl logs postgresql-primary-0 -n apps") == True
+#     assert is_safe_command("kubectl logs postgresql-primary-0 -n int-ksm-backdata") == True
 #
 # def test_is_safe_command_kubectl_restart():
 #     """Test commande restart safe"""
 #     from core.auto_remediation import is_safe_command
-#     assert is_safe_command("kubectl rollout restart statefulset/postgresql -n apps") == True
+#     assert is_safe_command("kubectl rollout restart statefulset/postgresql -n int-ksm-backdata") == True
 #
 # def test_is_safe_command_kubectl_delete_namespace():
 #     """Test commande dangereuse bloquée"""

@@ -12,7 +12,7 @@ APP_MAPPING = {
     "redis": "redis", "redpanda": "redpanda", "pgadmin": "pgadmin",
 }
 
-def get_loki_logs(service, namespace="apps", minutes=10):
+def get_loki_logs(service, namespace="int-ksm-backdata", minutes=10):
     try:
         end      = int(time.time() * 1e9)
         start    = int((time.time() - minutes * 60) * 1e9)
@@ -24,7 +24,13 @@ def get_loki_logs(service, namespace="apps", minutes=10):
             f'{{app="{app_label}", namespace="{namespace}"}}',
             f'{{app="{service}", namespace="{namespace}"}}',
             f'{{namespace="{namespace}", app=~"{app_name}.*"}}',
+            f'{{filename=~"/var/log/pods/{namespace}_{app_label}.*/.*.log"}}',
+            f'{{filename=~"/var/log/pods/{namespace}_{app_name}.*/.*.log"}}',
         ]:
+
+
+
+
             result  = requests.get(f"{LOKI_URL}/loki/api/v1/query_range",
                 params={"query": query, "start": start, "end": end, "limit": 50}, timeout=5).json()
             streams = result.get("data", {}).get("result", [])

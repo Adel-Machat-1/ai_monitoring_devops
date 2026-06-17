@@ -2,8 +2,8 @@
 import os
 
 # ── URLs ──────────────────────────────────────
-PROMETHEUS_URL = "http://localhost:9090"
-LOKI_URL       = "http://localhost:3100"
+PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
+LOKI_URL       = os.getenv("LOKI_URL",       "http://localhost:3100")
 
 # ── GitHub Models (GPT-4) ─────────────────────
 # Obtenir sur : https://github.com/settings/tokens
@@ -22,7 +22,7 @@ TO       = "exepmle2@gmail.com"
 
 
 # ── MinIO ─────────────────────────────────────
-MINIO_ENDPOINT   = "localhost:9000"
+MINIO_ENDPOINT   = os.getenv("MINIO_ENDPOINT", "localhost:9000")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "VOTRE_SECRET_KEY")
 MINIO_BUCKET     = "incident-reports"
@@ -94,12 +94,12 @@ ALLOWED_ALERTS = [
 
 # ── Apps   ( il faut modifier les nom selo votre kubernetes cluster )──────────────────────────────────────
 APP_NAMESPACES = {
-    "postgresql-primary-metrics": "apps",
-    "mongodb-metrics":            "apps",
-    "keycloak-metrics":           "apps",
-    "redis-metrics":              "apps",
-    "redpanda":                   "apps",
-    "kube-state-metrics":         "apps",
+    "postgresql-primary-metrics": "int-ksm-backdata",
+    "mongodb-metrics":            "int-ksm-backdata",
+    "keycloak-metrics":           "int-ksm-backdata",
+    "redis-metrics":              "int-ksm-backdata",
+    "redpanda":                   "int-ksm-backdata",
+    "kube-state-metrics":         "int-ksm-backdata",
 }
 
 APP_POD_PREFIX = {
@@ -115,6 +115,6 @@ MODELS = ["gpt-4o-mini", "gpt-4o"]
 
 # ── KSM Backend ───────────────────────────────
 KSM_ENABLED  = True
-KSM_BASE_URL = "https://ksm-dev.qualif.omniflowcx.com"
+KSM_BASE_URL = os.getenv("KSM_BASE_URL", "http://127.0.0.1:8000")
 KSM_EMAIL    = "monitoring_service@keyrus.com"
 KSM_PASSWORD = "VOTRE_MOT_DE_PASSE_ICI"

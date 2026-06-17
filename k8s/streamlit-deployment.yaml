@@ -1,0 +1,25 @@
+# k8s/streamlit-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streamlit
+  namespace: int-ksm-back
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: streamlit
+  template:
+    metadata:
+      labels:
+        app: streamlit
+    spec:
+      containers:
+        - name: streamlit
+          image: adelmachat/agent-ia:latest
+          command: ["streamlit", "run", "dashboard/Home.py", "--server.port=8501", "--server.address=0.0.0.0"]
+          ports:
+            - containerPort: 8501
+          envFrom:
+            - configMapRef:
+                name: agent-ia-config

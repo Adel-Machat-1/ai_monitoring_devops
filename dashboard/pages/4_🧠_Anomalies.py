@@ -42,7 +42,6 @@ st.markdown("""
         border-bottom: 2px solid #e2e8f0;
     }
 
-    /* Score card */
     .score-card {
         background: white; border-radius: 14px; padding: 20px 16px;
         box-shadow: 0 2px 12px rgba(0,0,0,0.07);
@@ -63,27 +62,12 @@ st.markdown("""
     .label-error   { background: #fff5f5; color: #718096; }
     .score-points  { font-size: 10px; color: #a0aec0; margin-top: 8px; }
 
-    /* Model status */
     .model-badge {
         display: inline-block; padding: 3px 10px; border-radius: 20px;
         font-size: 10px; font-weight: 700;
     }
     .model-ok  { background: #f0fff4; color: #38a169; border: 1px solid #c6f6d5; }
     .model-nok { background: #fff5f5; color: #e53e3e; border: 1px solid #fed7d7; }
-
-    /* History row */
-    .hist-row {
-        background: white; border-radius: 8px; padding: 12px 16px;
-        margin-bottom: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-        border-left: 4px solid #805ad5;
-        display: flex; align-items: center; gap: 12px;
-    }
-    .hist-alert { font-size: 13px; font-weight: 600; color: #1a202c; flex: 1; }
-    .hist-date  { font-size: 11px; color: #718096; white-space: nowrap; }
-    .hist-badge {
-        font-size: 10px; font-weight: 700; padding: 2px 8px;
-        border-radius: 10px; white-space: nowrap;
-    }
 
     .info-box {
         background: white; border-radius: 12px; padding: 20px 24px;
@@ -118,13 +102,13 @@ st.sidebar.divider()
 
 try:
     from minio import Minio as _M
-    _M("localhost:9000", access_key="minioadmin", secret_key="minioadmin123", secure=False).list_buckets()
+    _M(os.getenv("MINIO_ENDPOINT", "localhost:9000"), access_key="minioadmin", secret_key="minioadmin", secure=False).list_buckets()
     st.sidebar.success("✅ MinIO connecté")
 except:
     st.sidebar.error("❌ MinIO déconnecté")
 
 try:
-    if requests.get("http://localhost:9090/-/healthy", timeout=2).status_code == 200:
+    if requests.get(f"{os.getenv('PROMETHEUS_URL', 'http://localhost:9090')}/-/healthy", timeout=2).status_code == 200:
         st.sidebar.success("✅ Prometheus connecté")
     else:
         st.sidebar.error("❌ Prometheus déconnecté")
@@ -135,8 +119,12 @@ st.sidebar.divider()
 st.sidebar.caption(f"Vérification : {datetime.now().strftime('%H:%M:%S')}")
 
 # ── Constantes ────────────────────────────────────────────────
-PROMETHEUS_URL = "http://localhost:9090"
-MODELS_DIR     = os.path.join(os.path.dirname(__file__), '..', '..', 'models')
+PROMETHEUS_URL      = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
+MINIO_ENDPOINT      = os.getenv("MINIO_ENDPOINT", "localhost:9000")
+MODELS_DIR          = "/tmp/ml-models-cache"
+MINIO_BUCKET_MODELS = "ml-models"
+
+os.makedirs(MODELS_DIR, exist_ok=True)
 
 APP_COLORS = {
     "Keycloak"  : "#3182ce",
@@ -146,47 +134,46 @@ APP_COLORS = {
     "Redpanda"  : "#ed8936",
 }
 
-# ── Même features que collector.py (ordre identique au modèle entraîné) ──────
 APPS_FEATURES = {
     "Keycloak": {
         "key": "keycloak",
         "queries": {
-            "cpu":      'sum(rate(container_cpu_usage_seconds_total{pod=~"keycloak.*",namespace="apps",container="keycloak"}[5m]))',
-            "memory":   'sum(container_memory_usage_bytes{pod=~"keycloak.*",namespace="apps",container="keycloak"})',
-            "restarts": 'sum(kube_pod_container_status_restarts_total{pod=~"keycloak.*",namespace="apps"})',
-            "up":       'sum(up{job="keycloak-metrics"})',
+            "cpu":    'system_cpu_usage{job="keycloak-metrics"}',
+            "memory": 'sum(jvm_memory_used_bytes{job="keycloak-metrics"})',
+            "up":     'sum(up{job="keycloak-metrics"})',
         },
     },
     "PostgreSQL": {
         "key": "postgresql",
         "queries": {
-            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"postgresql.*",namespace="apps"}[5m]))',
-            "memory": 'sum(container_memory_usage_bytes{pod=~"postgresql.*",namespace="apps"})',
+            "cpu":    'rate(process_cpu_seconds_total{job="postgresql-primary-metrics"}[5m])',
+            "memory": 'process_resident_memory_bytes{job="postgresql-primary-metrics"}',
             "up":     'sum(up{job="postgresql-primary-metrics"})',
         },
     },
     "MongoDB": {
         "key": "mongodb",
         "queries": {
-            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"mongodb.*",namespace="apps"}[5m]))',
-            "memory": 'sum(container_memory_usage_bytes{pod=~"mongodb.*",namespace="apps"})',
-            "up":     'sum(up{job="mongodb-metrics"})',
+            "cpu":         'rate(process_cpu_seconds_total{job="mongodb-metrics"}[5m])',
+            "memory":      'process_resident_memory_bytes{job="mongodb-metrics"}',
+            "connections": 'mongodb_connections{job="mongodb-metrics",state="current"}',
+            "up":          'sum(up{job="mongodb-metrics"})',
         },
     },
     "Redis": {
         "key": "redis",
         "queries": {
-            "cpu":         'sum(rate(container_cpu_usage_seconds_total{pod=~"redis.*",namespace="apps"}[5m]))',
-            "memory":      'sum(container_memory_usage_bytes{pod=~"redis.*",namespace="apps"})',
-            "connections": 'sum(redis_connected_clients)',
+            "cpu":         'rate(process_cpu_seconds_total{job="redis-metrics"}[5m])',
+            "memory":      'process_resident_memory_bytes{job="redis-metrics"}',
+            "connections": 'redis_connected_clients{job="redis-metrics"}',
             "up":          'sum(up{job="redis-metrics"})',
         },
     },
     "Redpanda": {
         "key": "redpanda",
         "queries": {
-            "cpu":    'sum(rate(container_cpu_usage_seconds_total{pod=~"redpanda.*",namespace="apps"}[5m]))',
-            "memory": 'sum(container_memory_usage_bytes{pod=~"redpanda.*",namespace="apps"})',
+            "cpu":    'sum(vectorized_reactor_utilization{job="redpanda"})',
+            "memory": 'sum(vectorized_memory_allocated_memory{job="redpanda"})',
             "up":     'sum(up{job="redpanda"})',
         },
     },
@@ -202,48 +189,55 @@ def _prom(query):
     except:
         return 0.0
 
+def _load_model_from_minio(app_key):
+    """Charge les modèles depuis MinIO vers /tmp/ml-models-cache"""
+    model_path  = os.path.join(MODELS_DIR, f"{app_key}_model.pkl")
+    scaler_path = os.path.join(MODELS_DIR, f"{app_key}_scaler.pkl")
+
+    # Si déjà en cache local (moins de 10 minutes) → utiliser le cache
+    if os.path.exists(model_path) and os.path.exists(scaler_path):
+        age = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(model_path))).seconds
+        if age < 600:  # 10 minutes
+            return model_path, scaler_path
+
+    # Sinon charger depuis MinIO
+    try:
+        client = Minio(MINIO_ENDPOINT, access_key="minioadmin", secret_key="minioadmin", secure=False)
+        client.fget_object(MINIO_BUCKET_MODELS, f"{app_key}/{app_key}_model.pkl",  model_path)
+        client.fget_object(MINIO_BUCKET_MODELS, f"{app_key}/{app_key}_scaler.pkl", scaler_path)
+        return model_path, scaler_path
+    except Exception:
+        return None, None
+
 def get_anomaly_scores():
-    """
-    Calcule le score d'anomalie en temps réel.
-    Utilise exactement les mêmes features que collector.py
-    pour éviter tout mismatch de dimension avec le modèle entraîné.
-    """
     results = {}
     for display_name, app_cfg in APPS_FEATURES.items():
-        app_key     = app_cfg["key"]
-        model_path  = os.path.join(MODELS_DIR, f"{app_key}_model.pkl")
-        scaler_path = os.path.join(MODELS_DIR, f"{app_key}_scaler.pkl")
+        app_key = app_cfg["key"]
 
-        # ── Collecter les métriques avec les requêtes exactes du collector ──
+        # Collecter les métriques
         raw_metrics = {}
         for metric_name, query in app_cfg["queries"].items():
             raw_metrics[metric_name] = _prom(query)
 
-        # Pour l'affichage des cartes
-        cpu      = raw_metrics.get("cpu", 0)
-        memory   = raw_metrics.get("memory", 0) / (1024 * 1024)
-        restarts = int(raw_metrics.get("restarts", 0))
+        cpu    = raw_metrics.get("cpu", 0)
+        memory = raw_metrics.get("memory", 0) / (1024 * 1024)
 
-        model_exists = os.path.exists(model_path)
+        # Charger modèle depuis MinIO
+        model_path, scaler_path = _load_model_from_minio(app_key)
+        model_exists = model_path is not None and os.path.exists(model_path)
         model_mtime  = datetime.fromtimestamp(os.path.getmtime(model_path)) if model_exists else None
 
-        # Calculer le score si modèle disponible
         if model_exists:
             try:
                 model  = joblib.load(model_path)
                 scaler = joblib.load(scaler_path)
 
-                # ── Features dans le même ordre que le collector ──────────
-                # Utiliser les valeurs brutes (memory en bytes, pas en MB)
                 feature_values = list(raw_metrics.values())
-                n_expected = scaler.n_features_in_
-                n_got      = len(feature_values)
+                n_expected     = scaler.n_features_in_
+                n_got          = len(feature_values)
 
                 if n_got != n_expected:
-                    raise ValueError(
-                        f"Features mismatch : modèle attend {n_expected}, "
-                        f"dashboard envoie {n_got} ({list(raw_metrics.keys())})"
-                    )
+                    raise ValueError(f"Features mismatch : modèle attend {n_expected}, dashboard envoie {n_got}")
 
                 features        = np.array(feature_values).reshape(1, -1)
                 features_scaled = scaler.transform(features)
@@ -257,7 +251,7 @@ def get_anomaly_scores():
             except Exception as e:
                 anomaly_score = 0.0
                 is_anomaly    = False
-                status        = "error"   # distingue "sans modèle" de "erreur feature"
+                status        = "error"
                 model_exists  = False
         else:
             anomaly_score = 0.0
@@ -272,17 +266,14 @@ def get_anomaly_scores():
             "model_date" : model_mtime,
             "cpu"        : cpu,
             "memory_mb"  : memory,
-            "restarts"   : restarts,
             "n_features" : len(raw_metrics),
         }
     return results
 
 @st.cache_data(ttl=60)
 def get_anomaly_history():
-    """Charge l'historique des anomalies ML depuis MinIO."""
     try:
-        client = Minio("localhost:9000", access_key="minioadmin",
-                       secret_key="minioadmin123", secure=False)
+        client = Minio(MINIO_ENDPOINT, access_key="minioadmin", secret_key="minioadmin", secure=False)
         rows = []
         for obj in client.list_objects("incident-reports"):
             name = obj.object_name
@@ -309,16 +300,12 @@ def get_anomaly_history():
                     app = v
                     break
 
-            score_hint = "warning"
-            if "Critical" in alert or "critical" in alert:
-                score_hint = "critical"
-
             rows.append({
                 "filename": name,
                 "alert"   : alert,
                 "app"     : app,
                 "datetime": dt,
-                "severity": score_hint,
+                "severity": "critical" if "critical" in alert.lower() else "warning",
                 "size"    : f"{obj.size/1024:.1f} KB",
             })
         df = pd.DataFrame(rows)
@@ -337,14 +324,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
-# SECTIONS 1 & 2 — SCORES + JAUGES — Fragment auto-refresh 30s
+# SCORES + JAUGES
 # ══════════════════════════════════════════════════════════════
 @st.fragment(run_every=30)
 def live_scores():
     scores = get_anomaly_scores()
     now    = datetime.now().strftime('%H:%M:%S')
 
-    # ── Titre + timestamp ─────────────────────────────────────
     st.markdown(
         f'<p class="section-title">🎯 Scores d\'anomalie en temps réel '
         f'<span style="font-size:12px;font-weight:400;color:#a0aec0;">'
@@ -352,7 +338,6 @@ def live_scores():
         unsafe_allow_html=True
     )
 
-    # ── Score cards ───────────────────────────────────────────
     cols = st.columns(5)
     for i, (name, data) in enumerate(scores.items()):
         status = data["status"]
@@ -371,7 +356,6 @@ def live_scores():
             label_text  = "✅ NORMAL"
             label_class = "label-normal"
         else:
-            # "unknown" ou "error"
             score_color = "#718096"
             label_text  = "⏳ Sans modèle"
             label_class = "label-unknown"
@@ -395,9 +379,7 @@ def live_scores():
             </div>
             """, unsafe_allow_html=True)
 
-    # ── Jauges Plotly ─────────────────────────────────────────
-    st.markdown('<p class="section-title">📊 Jauges de détection</p>',
-                unsafe_allow_html=True)
+    st.markdown('<p class="section-title">📊 Jauges de détection</p>', unsafe_allow_html=True)
 
     fig = go.Figure()
     for i, (name, data) in enumerate(scores.items()):
@@ -440,7 +422,6 @@ def live_scores():
 
 live_scores()
 
-# Légende seuils
 c1, c2, c3 = st.columns(3)
 with c1:
     st.markdown("""
@@ -468,10 +449,9 @@ with c3:
     </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
-# SECTION 3 — HISTORIQUE DES ANOMALIES DÉTECTÉES
+# HISTORIQUE
 # ══════════════════════════════════════════════════════════════
-st.markdown('<p class="section-title">📜 Historique des anomalies détectées</p>',
-            unsafe_allow_html=True)
+st.markdown('<p class="section-title">📜 Historique des anomalies détectées</p>', unsafe_allow_html=True)
 
 history_df = get_anomaly_history()
 
@@ -484,70 +464,53 @@ if history_df.empty:
     </div>
     """, unsafe_allow_html=True)
 else:
-    # KPIs historique
     total_anom = len(history_df)
     apps_aff   = history_df['app'].nunique()
     last_anom  = history_df['datetime'].max().strftime('%d/%m/%Y %H:%M')
 
     k1, k2, k3 = st.columns(3)
     for col, icon, val, label, color in [
-        (k1, "🧠", total_anom,  "Total anomalies",       "#805ad5"),
-        (k2, "📱", apps_aff,    "Services touchés",      "#3182ce"),
-        (k3, "🕒", last_anom,   "Dernière anomalie",     "#ed8936"),
+        (k1, "🧠", total_anom, "Total anomalies",   "#805ad5"),
+        (k2, "📱", apps_aff,   "Services touchés",  "#3182ce"),
+        (k3, "🕒", last_anom,  "Dernière anomalie",  "#ed8936"),
     ]:
         col.markdown(f"""
         <div style="background:white;border-radius:12px;padding:16px;text-align:center;
                     box-shadow:0 2px 8px rgba(0,0,0,0.06);border-top:3px solid {color};">
             <div style="font-size:24px;">{icon}</div>
             <div style="font-size:22px;font-weight:800;color:{color};margin:4px 0;">{val}</div>
-            <div style="font-size:11px;color:#718096;text-transform:uppercase;
-                        letter-spacing:0.5px;">{label}</div>
+            <div style="font-size:11px;color:#718096;text-transform:uppercase;letter-spacing:0.5px;">{label}</div>
         </div>""", unsafe_allow_html=True)
 
     st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
 
-    # Graphique timeline
     fig2 = go.Figure()
     for app_name in history_df['app'].unique():
         app_df = history_df[history_df['app'] == app_name].copy()
-        app_df['count'] = range(1, len(app_df)+1)
         fig2.add_trace(go.Scatter(
             x    = app_df['datetime'],
             y    = [app_name] * len(app_df),
             mode = "markers",
             name = app_name,
-            marker = dict(
-                size   = 14,
-                color  = APP_COLORS.get(app_name, "#805ad5"),
-                symbol = "diamond",
-                line   = dict(width=1, color="white"),
-            ),
-            hovertemplate = (
-                "<b>%{y}</b><br>"
-                "Date : %{x|%d/%m/%Y %H:%M}<br>"
-                "<extra></extra>"
-            ),
+            marker = dict(size=14, color=APP_COLORS.get(app_name, "#805ad5"),
+                          symbol="diamond", line=dict(width=1, color="white")),
+            hovertemplate="<b>%{y}</b><br>Date : %{x|%d/%m/%Y %H:%M}<br><extra></extra>",
         ))
 
     fig2.update_layout(
-        title         = "Timeline des anomalies par service",
-        height        = 240,
-        plot_bgcolor  = "white",
-        paper_bgcolor = "#f8fafc",
-        font          = dict(family="Arial", size=12, color="#2d3748"),
-        margin        = dict(l=20, r=20, t=40, b=20),
-        xaxis         = dict(gridcolor="#f0f4f8", title=""),
-        yaxis         = dict(gridcolor="#f0f4f8", title=""),
-        showlegend    = False,
+        title="Timeline des anomalies par service", height=240,
+        plot_bgcolor="white", paper_bgcolor="#f8fafc",
+        font=dict(family="Arial", size=12, color="#2d3748"),
+        margin=dict(l=20, r=20, t=40, b=20),
+        xaxis=dict(gridcolor="#f0f4f8", title=""),
+        yaxis=dict(gridcolor="#f0f4f8", title=""),
+        showlegend=False,
     )
     st.plotly_chart(fig2, use_container_width=True)
 
-    # Liste détaillée (dernières 10)
-    st.markdown('<p class="section-title" style="margin-top:8px;">🔍 Dernières anomalies</p>',
-                unsafe_allow_html=True)
+    st.markdown('<p class="section-title" style="margin-top:8px;">🔍 Dernières anomalies</p>', unsafe_allow_html=True)
 
-    minio_client = Minio("localhost:9000", access_key="minioadmin",
-                         secret_key="minioadmin123", secure=False)
+    minio_client = Minio(MINIO_ENDPOINT, access_key="minioadmin", secret_key="minioadmin", secure=False)
 
     for _, row in history_df.head(10).iterrows():
         sev_color = "#e53e3e" if row['severity'] == 'critical' else "#805ad5"
@@ -563,9 +526,7 @@ else:
                 <div style="display:flex;align-items:center;gap:12px;">
                     <span style="font-size:20px;">🧠</span>
                     <div style="flex:1;">
-                        <div style="font-size:13px;font-weight:600;color:#1a202c;">
-                            {row['alert']}
-                        </div>
+                        <div style="font-size:13px;font-weight:600;color:#1a202c;">{row['alert']}</div>
                         <div style="font-size:11px;color:#718096;margin-top:2px;">
                             📱 {row['app']} &nbsp;·&nbsp;
                             📅 {row['datetime'].strftime('%d/%m/%Y %H:%M')} &nbsp;·&nbsp;
@@ -580,21 +541,17 @@ else:
             """, unsafe_allow_html=True)
         with c2:
             try:
-                pdf_bytes = minio_client.get_object(
-                    "incident-reports", row['filename']
-                ).read()
+                pdf_bytes = minio_client.get_object("incident-reports", row['filename']).read()
                 st.download_button(
-                    label     = "📥 Rapport",
-                    data      = pdf_bytes,
-                    file_name = row['filename'],
-                    mime      = "application/pdf",
-                    key       = f"anom_{row['filename']}",
+                    label="📥 Rapport", data=pdf_bytes,
+                    file_name=row['filename'], mime="application/pdf",
+                    key=f"anom_{row['filename']}",
                 )
             except:
                 st.markdown("❌", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
-# SECTION 4 — COMMENT ÇA MARCHE (compact)
+# FONCTIONNEMENT
 # ══════════════════════════════════════════════════════════════
 st.markdown('<p class="section-title">ℹ️ Fonctionnement</p>', unsafe_allow_html=True)
 
@@ -604,8 +561,8 @@ with col1:
     <div class="info-box">
         <h4>🔬 Isolation Forest — Pipeline en 3 phases</h4>
         <p>
-            ⏱️ <b>Phase 1 — Collecte</b> : métriques toutes les 5 min (CPU, RAM, restarts…)<br><br>
-            🧠 <b>Phase 2 — Entraînement</b> : modèle entraîné dès 5 points collectés<br><br>
+            ⏱️ <b>Phase 1 — Collecte</b> : métriques toutes les 5 min (CPU, RAM…)<br><br>
+            🧠 <b>Phase 2 — Entraînement</b> : modèle entraîné dès 10 points collectés<br><br>
             🔍 <b>Phase 3 — Détection</b> : score 0→1 calculé à chaque cycle
         </p>
     </div>
@@ -616,7 +573,7 @@ with col2:
     <div class="info-box">
         <h4>⚙️ Paramètres clés</h4>
         <p>
-            <b>MIN_TRAINING_POINTS</b> : 5 cycles avant le premier modèle<br><br>
+            <b>MIN_TRAINING_POINTS</b> : 10 cycles avant le premier modèle<br><br>
             <b>CONTAMINATION</b> : 3 % d'anomalies attendues<br><br>
             <b>SEUIL ALERTE</b> : score ≥ 0.55 (WARNING) · ≥ 0.75 (CRITICAL)<br><br>
             <b>DEDUP</b> : 30 min entre deux alertes identiques

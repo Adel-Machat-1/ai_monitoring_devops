@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-ia-service
+  namespace: int-ksm-back
+spec:
+  selector:
+    app: agent-ia
+  type: NodePort
+  ports:
+    - port: 5000
+      targetPort: 5000
+      nodePort: 30500

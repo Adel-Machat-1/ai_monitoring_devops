@@ -228,14 +228,13 @@ def detect_level(low, msg_stripped, tag):
         return "cmd"
     return "info"
 
-def parse_logs(log_file, n=3000):
+def parse_logs(n=3000):
     try:
-        with open(log_file, "r", encoding="utf-8", errors="replace") as f:
-            raw_lines = list(deque(f, maxlen=n))
-    except FileNotFoundError:
+        r = _req.get(f"{AGENT_URL}/logs", timeout=5)
+        raw_lines = list(deque(r.text.split('\n'), maxlen=n))
+    except:
         return []
-
-    # Garde uniquement les lignes depuis le dernier démarrage de l'agent
+    
     start_idx = 0
     for i, raw in enumerate(raw_lines):
         if "[démarrage]" in _ANSI.sub('', raw).lower():
@@ -247,28 +246,20 @@ def parse_logs(log_file, n=3000):
         line = _ANSI.sub('', raw).strip()
         if not line or _NOISE.match(line):
             continue
-
         m_ts = _TS.search(line)
-        ts      = m_ts.group(1) if m_ts else ""
-        ts_short = ts[11:] if ts else ""         # HH:MM:SS
-        msg     = line[m_ts.end():].strip(" —-|>").strip() if m_ts else line
-
+        ts       = m_ts.group(1) if m_ts else ""
+        ts_short = ts[11:] if ts else ""
+        msg      = line[m_ts.end():].strip(" —-|>").strip() if m_ts else line
         if not msg or not msg.strip("= \t"):
             continue
-
         low          = msg.lower()
         msg_stripped = msg.lstrip()
         tag          = detect_tag(low, msg_stripped)
         level        = detect_level(low, msg_stripped, tag)
-
         entries.append({
-            "ts":       ts,
-            "ts_short": ts_short,
-            "tag":      tag,
-            "level":    level,
-            "msg":      msg,
+            "ts": ts, "ts_short": ts_short,
+            "tag": tag, "level": level, "msg": msg,
         })
-
     return entries
 
 def _esc(t):
@@ -298,8 +289,9 @@ def render_row(entry):
     )
 
 # ── Valeurs fixes (fichier et tail hardcodés) ─────────────────
-log_path = "agent_ia.log"
-tail_n   = 200
+import os, requests as _req
+AGENT_URL = os.getenv("AGENT_URL", "http://localhost:5000")
+tail_n = 200
 
 # ── Sidebar (scope principal — ne recharge pas avec le fragment) ──
 with st.sidebar:
@@ -320,8 +312,8 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 # ── Fragment temps réel : relit le fichier toutes les 2s ──────
 @st.fragment(run_every=2)
-def live_terminal(log_path, filter_level, filter_tags, search, tail_n):
-    all_entries = parse_logs(log_path)
+def live_terminal(filter_level, filter_tags, search, tail_n):
+    all_entries = parse_logs()
 
     # Filtrage
     entries = all_entries
@@ -399,4 +391,4 @@ def live_terminal(log_path, filter_level, filter_tags, search, tail_n):
     """, unsafe_allow_html=True)
 
 
-live_terminal(log_path, filter_level, filter_tags, search, tail_n)
+live_terminal(filter_level, filter_tags, search, tail_n)
